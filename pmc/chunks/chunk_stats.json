@@ -1,21 +1,21 @@
 {
-  "chunks": 60874,
+  "chunks": 781563,
   "chunks_by_location": {
-    "abstract": 58799,
-    "body": 2075
+    "abstract": 58064,
+    "body": 723499
   },
   "chunks_by_source_category": {
     "currency-pack": 113,
-    "pmc-fulltext": 38178,
+    "pmc-fulltext": 758867,
     "pubmed-abstract": 22583
   },
-  "documents_abstract_only": 42755,
-  "documents_chunked": 42830,
-  "documents_with_body": 75,
-  "exact_duplicate_chunks_flagged": 48,
+  "documents_abstract_only": 17314,
+  "documents_chunked": 42964,
+  "documents_with_body": 25650,
+  "exact_duplicate_chunks_flagged": 8380,
   "overlap_words": 32,
-  "parsed_records_available": 76,
+  "parsed_records_available": 25743,
   "policy_records": 43409,
-  "unique_chunk_texts": 60826,
+  "unique_chunk_texts": 773183,
   "window_words": 256
 }
