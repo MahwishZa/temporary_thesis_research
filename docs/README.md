@@ -18,6 +18,7 @@ docs/
 | Document | Answers |
 | --- | --- |
 | [`architecture/architecture_map.md`](architecture/architecture_map.md) | Where does each piece live, what may import what, and why |
+| [`architecture/reorganization_2026-09-08.md`](architecture/reorganization_2026-09-08.md) | What moved when the repository was reorganised, what was verified, and what was deliberately left alone |
 | [`reproduction/rag2_reproduction.md`](reproduction/rag2_reproduction.md) | What the paper fixes `[S]`, what is ambiguous `[A]`, what is unavailable `[U]`, where paper and released code disagree `[D]` |
 | [`reproduction/rag2_reproduction_audit.md`](reproduction/rag2_reproduction_audit.md) | Component by component: what was verified, how, and what remains unverified |
 | [`reproduction/reproduction_results.md`](reproduction/reproduction_results.md) | Measured baseline results vs. the paper. **Deliberately blank — nothing measured yet.** |
