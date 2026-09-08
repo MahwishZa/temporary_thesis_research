@@ -108,6 +108,37 @@ def lexical_rank(questions: List[Dict[str, Any]], chunks_path: Path, depth: int,
     return out
 
 
+def corpus_document_frequency(questions: List[Dict[str, Any]], chunks_path: Path,
+                              max_chunks: int = 0) -> Dict[str, Any]:
+    """Document frequency of the question terms over the corpus, plus corpus size.
+
+    SCAF's support scorer needs corpus-level IDF (its v1 used within-candidate-set
+    IDF and collapsed). Only terms appearing in some question can affect sigma, so
+    only those are counted -- the table stays a few hundred entries instead of
+    hundreds of thousands.
+    """
+    terms: set = set()
+    for question in questions:
+        terms.update(tokenize(question["question"]))
+    counts = {t: 0 for t in terms}
+    size = 0
+    with chunks_path.open(encoding="utf-8") as fh:
+        for i, line in enumerate(fh):
+            if max_chunks and i >= max_chunks:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            chunk = json.loads(line)
+            if chunk.get("duplicate_of"):
+                continue
+            size += 1
+            present = set(tokenize(chunk.get("text", ""))) & terms
+            for token in present:
+                counts[token] += 1
+    return {"document_frequency": counts, "corpus_size": size}
+
+
 def to_frozen(question: Dict[str, Any], ranked: List[Dict[str, Any]]) -> FrozenCandidateSet:
     candidates = []
     for rank, item in enumerate(ranked, start=1):
@@ -211,7 +242,20 @@ def main(argv=None) -> int:
             print(f"  - {p}")
         return 1
 
-    provenance.update({"depth": args.depth, "questions_file": str(args.questions)})
+    # Corpus statistics for SCAF's support scorer. Computed from the SAME chunk
+    # file the candidates came from, and carried in the frozen sidecar so the
+    # comparison cannot silently score with different statistics.
+    stats = {"document_frequency": {}, "corpus_size": 0}
+    if args.chunks.exists():
+        stats = corpus_document_frequency(questions, args.chunks, args.max_chunks)
+        print(f"  corpus stats: {len(stats['document_frequency'])} question terms "
+              f"over {stats['corpus_size']:,} chunks")
+    else:
+        print("  WARNING: no chunk file; SCAF support will fall back to coverage only")
+
+    provenance.update({"depth": args.depth, "questions_file": str(args.questions),
+                       "corpus_size": stats["corpus_size"],
+                       "document_frequency": stats["document_frequency"]})
     meta = save(str(args.out), frozen_sets, provenance=provenance)
     print(f"\nFrozen candidates -> {args.out}")
     print(f"  questions            {meta['questions']}")

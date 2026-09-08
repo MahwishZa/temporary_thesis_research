@@ -300,3 +300,150 @@ class TestSummaries:
         assert manifest["fairness"]["all_passed"]
         assert manifest["frozen_set_digest"] == set_digest(frozen)
         json.dumps(manifest, default=str)
+
+
+class TestScientificPreconditions:
+    """The guards that stop a prototype being reported as the scientific result.
+
+    Each is proven to FAIL when its condition is violated -- a gate that only
+    ever passes is not a gate.
+    """
+
+    def _filters(self):
+        class LoadedRAG2:                      # what a real Flan-T5 filter looks like
+            helpful_id, not_helpful_id = 32100, 32101
+        return LoadedRAG2(), SCAFFilter(FilterConfig(
+            kind="scaf", options={"document_frequency": {"amyloid": 5}, "corpus_size": 100}))
+
+    @staticmethod
+    def _trained_checkpoint(tmp_path):
+        """A directory shaped like a trained HF checkpoint: config + weights."""
+        directory = tmp_path / "filter-checkpoint"
+        directory.mkdir(exist_ok=True)
+        (directory / "config.json").write_text('{"model_type": "t5"}', encoding="utf-8")
+        (directory / "model.safetensors").write_bytes(b"\x00" * 64)
+        return str(directory)
+
+    def _config(self, checkpoint=None, **overrides):
+        base = {
+            "arm_a_filter": "rag2_perplexity",
+            "arm_a_filter_config": {"checkpoint": checkpoint},
+            "retrieval_is_medcpt": True,
+            "retrieval_source": "rag2 candidate cache",
+            "arm_a_generator": "huggingface",
+        }
+        base.update(overrides)
+        return base
+
+    def _run(self, tmp_path, frozen=None, **overrides):
+        from scaf.compare import scientific_report
+        a, b = self._filters()
+        overrides.setdefault("arm_a_filter_config",
+                             {"checkpoint": self._trained_checkpoint(tmp_path)})
+        return scientific_report(self._config(**overrides),
+                                 frozen or [make_set(f"q{i}") for i in range(20)], a, b)
+
+    def test_a_correct_scientific_run_passes_every_precondition(self, tmp_path):
+        report = self._run(tmp_path)
+        assert report["all_passed"], report["failed"]
+
+    def test_passthrough_arm_a_fails(self, tmp_path):
+        report = self._run(tmp_path, arm_a_filter="passthrough")
+        assert "Arm A is NOT passthrough" in report["failed"]
+        assert "Arm A is the RAG2 perplexity filter" in report["failed"]
+
+    def test_missing_checkpoint_fails(self, tmp_path):
+        report = self._run(tmp_path, arm_a_filter_config={"checkpoint": None})
+        assert "Arm A has a trained checkpoint" in report["failed"]
+
+    def test_nonexistent_checkpoint_path_fails(self, tmp_path):
+        report = self._run(tmp_path, arm_a_filter_config={"checkpoint": "/no/such/checkpoint"})
+        assert "Arm A checkpoint exists on disk" in report["failed"]
+
+    def test_a_filter_without_label_tokens_fails(self):
+        """A stand-in object must not pass as the loaded Flan-T5 filter."""
+        from scaf.compare import scientific_report
+        _, scaf_filter = self._filters()
+        report = scientific_report(self._config(), [make_set(f"q{i}") for i in range(20)],
+                                   AlwaysFilter(True), scaf_filter)
+        assert "Arm A filter loaded its label tokens" in report["failed"]
+
+    def test_non_medcpt_retrieval_fails(self, tmp_path):
+        report = self._run(tmp_path, retrieval_is_medcpt=False)
+        assert "production MedCPT retrieval was used" in report["failed"]
+
+    @pytest.mark.parametrize("source", [
+        "lexical-dev (IDF term overlap)", "BM25 baseline", "tfidf ranking",
+        "mock retrieval", "stub retriever",
+    ])
+    def test_development_retrieval_stand_ins_are_rejected(self, tmp_path, source):
+        report = self._run(tmp_path, retrieval_source=source)
+        assert "no development retrieval stand-in" in report["failed"], source
+
+    def test_missing_generator_fails(self, tmp_path):
+        assert "a generator is configured" in self._run(tmp_path, arm_a_generator="none")["failed"]
+        assert "a generator is configured" in self._run(tmp_path, arm_a_generator="")["failed"]
+
+    def test_too_few_questions_fails(self, tmp_path):
+        report = self._run(tmp_path, frozen=[make_set(f"q{i}") for i in range(5)])
+        assert "at least 20 questions" in report["failed"]
+
+    def test_inactive_scaf_currency_fails(self):
+        from scaf.compare import scientific_report
+        a, _ = self._filters()
+        dead = SCAFFilter(FilterConfig(kind="scaf", options={
+            "weights": {"support": 1.0, "currency": 0.0, "corroboration": 0.0,
+                        "authority": 0.0},
+            "document_frequency": {"a": 1}, "corpus_size": 10}))
+        report = scientific_report(self._config(), [make_set(f"q{i}") for i in range(20)],
+                                   a, dead)
+        assert "SCAF currency is active" in report["failed"]
+        assert "SCAF authority is active" in report["failed"]
+
+    def test_scaf_without_corpus_statistics_fails(self):
+        """The v1 support collapse must not be able to reach a reported run."""
+        from scaf.compare import scientific_report
+        a, _ = self._filters()
+        no_stats = SCAFFilter(FilterConfig(kind="scaf"))
+        report = scientific_report(self._config(), [make_set(f"q{i}") for i in range(20)],
+                                   a, no_stats)
+        assert "SCAF support has corpus statistics" in report["failed"]
+
+    def test_disabled_retraction_gate_fails(self):
+        from scaf.compare import scientific_report
+        a, _ = self._filters()
+        ungated = SCAFFilter(FilterConfig(kind="scaf", options={
+            "reject_retracted": False, "abstain": False,
+            "document_frequency": {"a": 1}, "corpus_size": 10}))
+        report = scientific_report(self._config(), [make_set(f"q{i}") for i in range(20)],
+                                   a, ungated)
+        assert "SCAF retraction gate is active" in report["failed"]
+        assert "SCAF abstention is enabled" in report["failed"]
+
+
+class TestComponentsActuallyComputed:
+    def test_a_constant_component_is_reported_as_inert(self):
+        from scaf.compare import components_actually_computed
+        results = [ArmResult("q1", "scaf", decisions=[
+            {"chunk_id": "a", "keep": True,
+             "detail": {"sigma_support": 0.5, "gamma_currency": 1.0,
+                        "tau_authority": 0.4, "scaf_score": 0.6}},
+            {"chunk_id": "b", "keep": True,
+             "detail": {"sigma_support": 0.9, "gamma_currency": 1.0,
+                        "tau_authority": 0.4, "scaf_score": 0.8}},
+        ])]
+        out = components_actually_computed(results)
+        assert out["sigma_support"]["varies"] is True
+        assert out["gamma_currency"]["varies"] is False    # constant -> inert
+        assert out["tau_authority"]["varies"] is False
+        assert out["sigma_support"]["n"] == 2
+
+    def test_real_scaf_output_varies_on_every_component(self):
+        from scaf.compare import components_actually_computed
+        frozen = [make_set("q1", n=6), make_set("q2", n=6)]
+        scaf_filter = SCAFFilter(FilterConfig(kind="scaf", options={
+            "document_frequency": {"amyloid": 50, "evidence": 900}, "corpus_size": 1000}))
+        out = components_actually_computed(run_arm("scaf", scaf_filter, frozen))
+        for key in ("sigma_support", "gamma_currency", "scaf_score"):
+            assert out[key]["n"] == 12
+        assert out["gamma_currency"]["varies"], "currency must respond to the dates"

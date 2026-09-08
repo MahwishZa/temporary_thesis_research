@@ -1,0 +1,144 @@
+# Canonical configuration for the preliminary RAG2-vs-SCAF comparison.
+#
+# One file, no hidden defaults: every experimental parameter that can change a
+# result is named here. The run manifest records the resolved values plus the
+# environment, so a number can always be traced back to the configuration that
+# produced it.
+#
+# Two profiles. They differ ONLY in provenance -- never in method:
+#
+#   development  offline; lexical retrieval stand-in, no filter checkpoint, no
+#                generator. Exercises the wiring. Its manifest is stamped
+#                "DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT".
+#   scientific   the reportable run. Every field below must be satisfied; the
+#                runner's --scientific flag aborts if any precondition fails.
+
+experiment:
+  name: rag2-vs-scaf-preliminary
+  seed: 42
+  label: PRELIMINARY / DEVELOPMENT RESULTS
+  output_dir: scaf/runs
+
+# --- questions -------------------------------------------------------------
+questions:
+  file: scaf/data/dev_questions.jsonl
+  set_version: alzheimer-dev-v1
+  count: 30
+  # Fixed BEFORE any comparison result was inspected. No gold answers: this
+  # milestone compares admission, not accuracy.
+  has_gold_answers: false
+
+# --- corpus and index ------------------------------------------------------
+# Do not rebuild any of this. Verify it with pmc/verify_index.py.
+corpus:
+  chunks: pmc/chunks/chunks.jsonl
+  chunk_stats: pmc/chunks/chunk_stats.json
+  production_chunks: 781563
+  production_documents: 42964
+  production_unique_chunk_texts: 773183
+  # Recorded at freeze time from index_meta.json; the freeze fails if absent.
+  index_dir: pmc/index
+  index_encoder: ncbi/MedCPT-Article-Encoder
+  index_dim: 768
+  # ENVIRONMENT-SPECIFIC: these are properties of the machine holding the index.
+  # Left blank deliberately -- a fabricated digest is worse than a missing one.
+  index_digest: ""          # fill from pmc/index/index_meta.json content_digest
+  index_verified_by: "python pmc/verify_index.py"   # must report 16/16
+
+# --- upstream: retrieval and reranking (frozen once, shared by both arms) ---
+retrieval:
+  # development: lexical-dev  |  scientific: medcpt   <- the runner enforces this
+  source: medcpt
+  query_encoder: ncbi/MedCPT-Query-Encoder
+  reranker: ncbi/MedCPT-Cross-Encoder
+  candidates_per_corpus: 100
+  candidate_depth: 20               # kept per question after reranking
+  rerank_query: initial             # paper's reading; 'rationale' is the code path
+  shard_merge: score
+  frozen_file: scaf/runs/frozen_candidates.jsonl
+  # ENVIRONMENT-SPECIFIC: emitted by scaf/scripts/freeze_candidates.py.
+  frozen_set_digest: ""             # filled by the freeze step; cite it with results
+  # SCAF's support scorer needs corpus IDF; the freeze step computes it from the
+  # same chunk file the candidates came from and stores it in the sidecar.
+  corpus_statistics_from_freeze: true
+
+# --- ARM A: the original RAG2 admission policy -----------------------------
+arm_a:
+  filter: rag2_perplexity           # MUST NOT be passthrough for a reported run
+  base_model: google/flan-t5-large  # paper 4.2, 770M
+  # ENVIRONMENT-SPECIFIC: produced by rag2/scripts/04_train_filter.py --select.
+  # The run manifest records its resolved path, file listing, sizes, mtimes and a
+  # digest over that listing (arm_a_checkpoint_identity). Weight bytes are not
+  # hashed: a HF checkpoint is multi-GB and the listing identifies it adequately.
+  checkpoint: ""                    # REQUIRED. Not distributed by the RAG2 authors.
+  max_seq_length: 512
+  doc_stride: 128
+  overflow: truncate
+  # Filter training (rag2/scripts/03 then 04). Appendix A.3 values.
+  training:
+    learning_rate: 3.0e-5
+    num_train_epochs: 40
+    per_device_train_batch_size: 16
+    tau_percentile: 25              # "top 25% of perplexity differentials"
+    tau_scope: global
+    ppl_target: rationale           # Eq.4 literally says query; prose+Fig.2 say rationale
+    select_by: val_accuracy
+    seed: 42
+
+# --- ARM B: the thesis SCAF admission policy -------------------------------
+arm_b:
+  filter: scaf
+  weights:                          # A(s) = w_s*sigma + w_g*gamma + w_r*rho + w_t*tau
+    support: 0.50
+    currency: 0.30
+    corroboration: 0.0              # rho NOT IMPLEMENTED at this stage
+    authority: 0.20
+  admit_threshold: 0.45             # a-priori. NOT tuned on the evaluation set.
+  max_admit: 0                      # 0 = uncapped
+  abstain: true
+  reject_retracted: true
+  half_life_years: 5.0
+  superseded_discount: 0.5
+  as_of: ""                         # blank = today; pin it for a reproducible run
+  support:
+    scorer: lexical-coverage-corpus-idf-v2
+    is_entailment: false            # PROTOTYPE. Replace before any thesis claim.
+    # document_frequency + corpus_size are computed at freeze time from the same
+    # chunk file the candidates came from, and travel in the frozen sidecar.
+  authority_tiers:                  # ablation A12 treats this ordering as a VARIABLE
+    clinical-practice-guideline: 1.00
+    appropriate-use-criteria: 0.85
+    diagnostic-criteria: 0.85
+    consensus-recommendation: 0.70
+    "": 0.40
+  category_authority:
+    currency-pack: 0.60
+    pmc-fulltext: 0.45
+    pubmed-abstract: 0.40
+
+# --- generation: identical for both arms -----------------------------------
+# Both arms are driven by ONE generator object built from this block
+# (scaf/generation.py), so "same generator, same decoding" is structural rather
+# than a claim. Answers come from rag2's own answer prompt over the admitted
+# evidence -- no second prompt path exists.
+generation:
+  backend: huggingface              # huggingface | vllm | openai. NOT 'stub'.
+  model: meta-llama/Meta-Llama-3-8B-Instruct   # paper 4.2 footnote 2. GATED.
+  revision: ""                      # ENVIRONMENT-SPECIFIC: pin per run; the
+                                    # resolved commit is recorded in the manifest
+  dtype: bfloat16
+  device: auto
+  temperature: 0.0                  # paper A.3: greedy. >0 is rejected.
+  top_p: 1.0
+  max_new_tokens: 512
+  max_input_tokens: 0               # 0 = model default
+  batch_size: 8
+  chat_template: true               # instruct models need their own template
+  prompt_version: rag2-original-v1
+  seed: 42
+
+# --- outputs ---------------------------------------------------------------
+outputs:
+  per_question: scaf/runs/per_question.jsonl
+  manifest: scaf/runs/manifest.json
+  report: docs/preliminary_rag2_vs_scaf.md

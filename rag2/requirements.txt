@@ -17,6 +17,11 @@ transformers==4.36.2
 datasets==2.15.0
 accelerate>=0.26
 sentencepiece==0.1.99
+# classifier/run_classifier.py imports nltk at module level and calls
+# nltk.data.find("tokenizers/punkt") at startup, so filter training fails
+# immediately without it. Pinned to the authors' environment.yml value. The
+# first run downloads the punkt data and therefore needs network access.
+nltk==3.8.1
 
 # --- retrieval index --------------------------------------------------------
 # The release uses faiss-gpu 1.7.2 (IndexFlatIP). rag2.retrieval.index falls back

@@ -1,12 +1,34 @@
-# PRELIMINARY / DEVELOPMENT RESULTS — RAG² vs SCAF
+# MILESTONE INCOMPLETE — RAG² vs SCAF
 
-**Not thesis results.** Nothing here validates the thesis or shows SCAF to be
-better than RAG². This is a development milestone: it establishes that both
-admission policies run end to end on the thesis corpus over an identical frozen
-candidate set, and that their decisions are inspectable.
+**This is not the scientific RAG²-vs-SCAF result.** It is a development run.
+Three of the acceptance criteria cannot be met in the execution environment,
+and the software now *refuses* to label such a run as a result.
 
-Run date 2026-09-04 · commit recorded in `scaf/runs/manifest.json` · 30 questions ·
-600 candidates · frozen-set digest `151b7d54…aa8ccf3d`
+| Acceptance criterion | Status | Blocker |
+| --- | --- | --- |
+| Arm A uses the **trained** RAG² perplexity filter | ❌ **not met** | The Flan-T5 checkpoint has never been trained. Training needs `torch`+`transformers` and an 8B LLM to compute the ΔPPL labels. Neither exists here. |
+| **Production MedCPT/FAISS** retrieval | ❌ **not met** | `pmc/index/` is **absent** from this container (2.4 GB, 773k vectors — it lives on the Windows machine), and no MedCPT weights are installed. |
+| **Actual generated answers** | ❌ **not met** | Needs `meta-llama/Meta-Llama-3-8B-Instruct` (gated, ~16 GB). |
+
+Environment probe, this container: `torch` ABSENT · `transformers` ABSENT ·
+`faiss` ABSENT · no GPU, no `/dev/nvidia*` · `pmc/index/` ABSENT · no HF model
+cache · local `chunks.jsonl` is the 60,874-chunk container build, not the
+781,563-chunk production layer.
+
+**What this session did instead** — removed every *software* blocker, so the
+scientific run is now a matter of hardware, not code:
+
+1. Fixed the SCAF support collapse (§5, example E in the previous version) — σ
+   on the alz-016 case went from **0.033 → 1.000/0.753**.
+2. Added **15 scientific preconditions** that make an invalid run *impossible to
+   report*: `--scientific` aborts, and without it the manifest is stamped
+   `DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT` with `reportable: false`.
+3. Added a canonical experiment configuration
+   (`scaf/configs/preliminary_experiment.yaml`).
+
+Run date 2026-09-08 · 30 questions · 600 candidates · frozen-set digest
+`151b7d54…aa8ccf3d` · manifest `reportable: false`, scientific preconditions
+**7/15**
 
 ---
 
@@ -97,6 +119,31 @@ from these numbers. The admission comparison below is therefore
 *SCAF vs no-admission*, which bounds SCAF's selectivity but says nothing yet
 about SCAF vs the perplexity filter.
 
+**The software now enforces this distinction.** `run_comparison.py --scientific`
+refuses to start with `passthrough`, and every run records 15 preconditions:
+
+```
+[FAIL] Arm A is the RAG2 perplexity filter      arm_a_filter='passthrough'
+[FAIL] Arm A is NOT passthrough
+[FAIL] Arm A has a trained checkpoint
+[FAIL] Arm A checkpoint exists on disk
+[FAIL] Arm A filter loaded its label tokens
+[FAIL] production MedCPT retrieval was used     retrieval_is_medcpt=False
+[FAIL] no development retrieval stand-in        matched ['lexical', 'dev']
+[FAIL] a generator is configured                generator='none'
+[PASS] Arm B is SCAF
+[PASS] SCAF support has corpus statistics
+[PASS] SCAF currency is active
+[PASS] SCAF authority is active
+[PASS] SCAF retraction gate is active
+[PASS] SCAF abstention is enabled
+[PASS] at least 20 questions
+```
+
+All four SCAF components were confirmed to *vary* across candidates
+(`scaf_components` in the manifest), so none is inert — the failure mode that
+hid the v1 support collapse.
+
 ---
 
 ## 3. Execution statistics
@@ -170,15 +217,33 @@ property of the *record*, not of how confidently the passage reads.
 `PMC12893748#abs.w1` (ARIA monitoring, clinical-practice-guideline, score 0.731)
 and `PMC12287243#abs.w1` (anti-amyloid monitoring, score 0.815).
 
-**E. SCAF makes a questionable decision — reported, not hidden.** On alz-016
-("What is the neuropathological hallmark of Alzheimer disease?"), SCAF rejected
-chunks that matched *neuropathological*, *hallmark* and *disease* with σ = 0.033.
-The cause is a real weakness of the MVP support scorer: IDF is computed **within
-the candidate set**, so when every candidate is equally on-topic those terms
-carry almost no weight and σ collapses for all of them. σ is therefore a
-*within-set discriminator*, not an absolute topicality measure. The entailment
-model the thesis specifies would not have this failure mode. **This is the
-strongest argument for replacing σ before any real experiment.**
+**E. The v1 support collapse — found last session, FIXED this session.** On
+alz-016 ("What is the neuropathological hallmark of Alzheimer disease?"), v1
+rejected chunks that matched *neuropathological*, *hallmark* and *disease* with
+σ = 0.033. The cause: IDF was computed **within the candidate set**, so when
+retrieval works and every candidate is on-topic, the question's own terms appear
+in all of them, their weight goes to ~0, and σ collapsed for every candidate at
+once. σ had stopped measuring topicality and become a within-set contrast.
+
+`SupportScorer` v2 (`lexical-coverage-corpus-idf-v2`) fixes it two ways: IDF now
+comes from the **corpus** (computed at freeze time over the same chunk file), and
+**coverage** — the plain fraction of question terms present — is scored alongside
+it and cannot collapse, because it does not depend on any other candidate.
+
+| alz-016 candidate | v1 σ | v2 σ | v2 coverage | v2 idf-overlap |
+| --- | --- | --- | --- | --- |
+| `PMID38490074#abs.w1` | 0.033 | **1.000** | 1.000 | 1.000 |
+| `PMC10757623#abs.w1` | 0.033 | **0.753** | 0.750 | 0.756 |
+
+Guarded by tests that pin the non-collapse directly, and by a precondition that
+fails a scientific run whose support scorer has no corpus statistics.
+
+**σ is still a PROTOTYPE, not entailment.** No semantic model is available in
+this environment (`transformers` absent, no HF cache), so per the brief this is
+"the smallest defensible support mechanism". It is one small interface
+(`SupportScorer`) and every record carries `support_method` and
+`support_detail.idf_source`. Replacing it with the thesis's entailment model
+touches no other code.
 
 **A / B (SCAF better / RAG² better) cannot be assessed yet** — no answers were
 generated, and Arm A had no filter to be better or worse than.
