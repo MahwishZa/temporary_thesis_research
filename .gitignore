@@ -12,9 +12,9 @@ env/
 *.env
 
 # PubMed backup files
-pubmed/pubmed_results_backup_*.csv
-pubmed/pubmed_results_backup_*.json
-pubmed/search_log_backup_*.csv
+data/corpora/pubmed/pubmed_results_backup_*.csv
+data/corpora/pubmed/pubmed_results_backup_*.json
+data/corpora/pubmed/search_log_backup_*.csv
 
 # Temporary files
 *.tmp
@@ -23,13 +23,13 @@ pubmed/search_log_backup_*.csv
 # Downloaded PMC full text (research data, not source code).
 # Reconstructible from pmc/pmc_oa_inventory.csv plus the manifest's MD5s.
 # pmc/fulltext/manifest.csv and failures.csv are deliberately NOT ignored.
-pmc/fulltext/xml/
-pmc/fulltext/**/*.part
+data/corpora/pmc/fulltext/xml/
+data/corpora/pmc/fulltext/**/*.part
 
 # Parsed article records (derived research data, not source code).
 # Regenerable from the raw XML plus pmc/parse_pmc_xml.py; every record carries
 # the source MD5, so a rebuild can be proven to match.
-pmc/parsed/
+data/corpora/pmc/parsed/
 
 # Scratch inventories produced while investigating acquisition failures. Not part
 # of the corpus and never committed; retry71.csv is regenerable from the snippet
@@ -40,13 +40,14 @@ pmc/parsed/
 # Regenerable deterministically from the parsed corpus plus the frozen M1-M4
 # overlays via pmc/build_chunks.py. chunk_stats.json is deliberately NOT ignored:
 # it is the committed evidence of the run.
-pmc/chunks/chunks.jsonl
+data/corpora/pmc/chunks/chunks.jsonl
 
 # Embedding index and retrieved candidate sets (derived, large, machine-specific).
 # Rebuilt with pmc/embed_chunks.py on the machine that holds the model weights.
 # A stub index must never be committed: it is not valid for thesis results.
-pmc/index/
-pmc/candidates/
+indexes/production/
+indexes/development/
+experiments/runs/candidates/
 
 # Pytest cache
 .pytest_cache/
@@ -55,19 +56,19 @@ pmc/candidates/
 # and regenerable; every number that matters is traced by its run manifest instead.
 runs/
 cache/
-rag2/runs/
-rag2/cache/
+architecture/rag2/runs/
+architecture/rag2/cache/
 
 # RAG2 baseline: corpus artifacts the user supplies (see rag2/retriever/README.md).
 # The RAG2 authors do not redistribute the four biomedical corpora; these paths are
 # where a local copy goes. This repository's own corpus lives under pmc/.
-rag2/retriever/embeddings/**/*.npy
-rag2/retriever/articles/**/*.json
-rag2/retriever/input/*.json
-rag2/retriever/output/*.json
+architecture/rag2/retriever/embeddings/**/*.npy
+architecture/rag2/retriever/articles/**/*.json
+architecture/rag2/retriever/input/*.json
+architecture/rag2/retriever/output/*.json
 
 # RAG2 baseline: trained filter checkpoints. Model weights, never source.
-rag2/data/
+architecture/rag2/data/
 
 # Hugging Face / MedCPT model weights, if a cache is ever pointed inside the repo.
 # Model files are hundreds of MB and are re-downloadable from the model id.
@@ -79,4 +80,4 @@ models--*/
 # SCAF experiment outputs: frozen candidate sets, per-question traces, manifests.
 # Regenerable from the two scripts in scaf/scripts/; the question set and the
 # configuration ARE committed, the run products are not.
-scaf/runs/
+experiments/runs/
