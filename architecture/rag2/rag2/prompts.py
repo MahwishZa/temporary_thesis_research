@@ -2,7 +2,7 @@
 
 Every template here is a versioned constant so that a prompt edit shows up in the
 run manifest as a changed hash (see rag2/experiment.py). Provenance of each
-template is recorded inline and in docs/rag2_reproduction.md section 3.
+template is recorded inline and in docs/reproduction/rag2_reproduction.md section 3.
 
 Legend:
   [S] specified by the paper / released repository, reproduced verbatim
@@ -49,7 +49,7 @@ FILTER_LABELS = (LABEL_HELPFUL, LABEL_NOT_HELPFUL)
 #     reconstruction reuses the paper's own chain-of-thought prompt with an
 #     evidence block prepended, because the paper states the same LLM does both
 #     rationale generation and QA (section 3.3) and Meerkat was instruction-tuned
-#     on that prompt. See docs/rag2_reproduction.md section 3.3 -- this is the
+#     on that prompt. See docs/reproduction/rag2_reproduction.md section 3.3 -- this is the
 #     largest prompt-level assumption in the reproduction.
 # --------------------------------------------------------------------------
 ANSWER_PROMPT_WITH_EVIDENCE = (
@@ -96,7 +96,7 @@ class PromptSet:
         """Build the Flan-T5 filter input for one (question, snippet) pair.
 
         Only ``Evidence.text`` is used: provenance metadata never reaches the
-        filter (docs/rag2_reproduction.md section 4.1).
+        filter (docs/reproduction/rag2_reproduction.md section 4.1).
         """
         text = evidence.text if isinstance(evidence, Evidence) else str(evidence)
         return self.filter_input.format(

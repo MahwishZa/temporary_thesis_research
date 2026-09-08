@@ -5,7 +5,7 @@ seam the baseline already exposes (:class:`rag2.filtering.base.EvidenceFilter`),
 so the two can be compared on an identical candidate set with nothing else
 changed. No baseline file is modified by this module, and it lives outside
 ``rag2/`` so the baseline's metadata-isolation guard stays meaningful -- see
-``scaf/__init__.py``.
+``architecture/scaf/__init__.py``.
 
     A(s) = w_sigma * sigma  +  w_gamma * gamma  +  w_rho * rho  +  w_tau * tau
 
@@ -131,7 +131,7 @@ class SupportScorer:
     It is deliberately behind one small interface so the entailment model can
     replace it without touching the admission policy.
 
-    Fix to the v1 collapse (see docs/preliminary_rag2_vs_scaf.md, example E)
+    Fix to the v1 collapse (see docs/experiments/preliminary_rag2_vs_scaf.md, example E)
     -------------------------------------------------------------------------
     v1 computed IDF **over the candidate set**. When retrieval does its job every
     candidate is on-topic, so the question's own terms appear in all of them, IDF

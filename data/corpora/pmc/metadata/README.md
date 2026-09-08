@@ -1,7 +1,7 @@
 # Corpus policy metadata (M1–M4)
 
 Derived, additive overlays that materialize the approved **Corpus Decision
-Specification** (M1–M4). Built by `pmc/build_corpus_metadata.py`.
+Specification** (M1–M4). Built by `preprocessing/pmc/build_corpus_metadata.py`.
 
 Nothing here modifies the raw acquisition corpus, the PMC XML, the parsed
 records, `manifest.csv`, the inventory, the PubMed pipeline, or
@@ -127,11 +127,11 @@ Key rules (from the spec, not new decisions):
 
 ```bash
 # On the machine with the full parsed corpus (JATS-primary dates):
-python3 pmc/build_corpus_metadata.py
+python3 preprocessing/pmc/build_corpus_metadata.py
 
 # On a container with only the sample (PubMed-fallback dates), point --pubmed at
 # the resolved LFS object and skip the one-off Cochrane fetch once staged:
-python3 pmc/build_corpus_metadata.py --pubmed <path-to-pubmed_results.csv> --no-fetch
+python3 preprocessing/pmc/build_corpus_metadata.py --pubmed <path-to-pubmed_results.csv> --no-fetch
 ```
 
 Tests: `cd pmc && python3 -m unittest test_build_corpus_metadata` (33 tests).

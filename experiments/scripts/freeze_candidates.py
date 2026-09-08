@@ -6,8 +6,8 @@
 Two sources, and the distinction matters for what may be reported:
 
 ``--source medcpt``  the real path. Reads a candidate cache produced by the
-    baseline's own ``rag2/scripts/02_retrieve.py`` (MedCPT query encoding,
-    balanced retrieval over pmc/index, MedCPT cross-encoder reranking) and
+    baseline's own ``architecture/rag2/scripts/02_retrieve.py`` (MedCPT query encoding,
+    balanced retrieval over indexes/production, MedCPT cross-encoder reranking) and
     freezes it verbatim. This is the only source whose output may back a
     thesis claim.
 
@@ -33,16 +33,16 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
-for _p in (str(_ROOT), str(_ROOT / "rag2")):
+for _p in (str(_ROOT / "architecture"), str(_ROOT / "architecture" / "rag2")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 from scaf.frozen import FrozenCandidate, FrozenCandidateSet, save, validate  # noqa: E402
 from scaf.policy import tokenize                                            # noqa: E402
 
-DEFAULT_QUESTIONS = _ROOT / "scaf" / "data" / "dev_questions.jsonl"
-DEFAULT_CHUNKS = _ROOT / "pmc" / "chunks" / "chunks.jsonl"
-DEFAULT_OUT = _ROOT / "scaf" / "runs" / "frozen_candidates.jsonl"
+DEFAULT_QUESTIONS = _ROOT / "data" / "datasets" / "thesis_questions" / "dev_questions.jsonl"
+DEFAULT_CHUNKS = _ROOT / "data" / "corpora" / "pmc" / "chunks" / "chunks.jsonl"
+DEFAULT_OUT = _ROOT / "experiments" / "runs" / "frozen_candidates.jsonl"
 
 
 def read_questions(path: Path) -> List[Dict[str, Any]]:
@@ -218,7 +218,7 @@ def main(argv=None) -> int:
         if not args.chunks.exists():
             raise SystemExit(
                 f"chunk layer not found: {args.chunks}\n"
-                "Build it with pmc/build_chunks.py, or pass --chunks.")
+                "Build it with preprocessing/pmc/build_chunks.py, or pass --chunks.")
         ranked = lexical_rank(questions, args.chunks, args.depth, args.max_chunks)
         frozen_sets = [to_frozen(q, ranked.get(q["qid"], [])) for q in questions]
         provenance = {

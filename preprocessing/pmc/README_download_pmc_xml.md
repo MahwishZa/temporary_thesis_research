@@ -1,6 +1,6 @@
 # PMC full-text XML downloader
 
-`download_pmc_xml.py` reads the validated inventory `pmc/pmc_oa_inventory.csv`,
+`download_pmc_xml.py` reads the validated inventory `data/corpora/pmc/pmc_oa_inventory.csv`,
 takes the records where `has_xml = yes` (25,743 of 27,508), and downloads each
 article's JATS XML from the PMC Cloud Service, verifying every file against the
 MD5 the inventory already carries.
@@ -29,10 +29,10 @@ dropped.
 ## Running it
 
 ```bash
-python3 pmc/download_pmc_xml.py --list-only    # plan only; makes no network requests
-python3 pmc/download_pmc_xml.py --limit 5      # small test run
-python3 pmc/download_pmc_xml.py                # full run (deliberate, no flag)
-python3 pmc/download_pmc_xml.py                # run again to resume or retry failures
+python3 preprocessing/pmc/download_pmc_xml.py --list-only    # plan only; makes no network requests
+python3 preprocessing/pmc/download_pmc_xml.py --limit 5      # small test run
+python3 preprocessing/pmc/download_pmc_xml.py                # full run (deliberate, no flag)
+python3 preprocessing/pmc/download_pmc_xml.py                # run again to resume or retry failures
 ```
 
 The full 25,743-article run happens only when you run it **without** `--limit`.
@@ -46,7 +46,7 @@ Requires only the Python standard library.
 ## Where things are stored
 
 ```
-pmc/fulltext/
+data/corpora/pmc/fulltext/
 ├── xml/
 │   ├── PMC9277667.xml        one file per article, named by PMCID
 │   └── ...
@@ -139,7 +139,7 @@ The downloaded XML is research data, not source code. Roughly 25,700 files at
 around 100–200 KB each is on the order of **3–5 GB** — an estimate from typical
 article sizes, not a measurement.
 
-`pmc/fulltext/xml/` should **not** be committed. The manifest, failures file and
+`data/corpora/pmc/fulltext/xml/` should **not** be committed. The manifest, failures file and
 scripts are enough to reconstruct and verify the corpus exactly: every file's MD5
 is recorded, so anyone can rebuild it and prove it byte-identical. That is a
 stronger reproducibility claim than committing the bytes, and it avoids

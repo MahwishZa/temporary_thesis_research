@@ -18,8 +18,8 @@ Why the separation is enforced rather than merely intended: the thesis measures
 what the *original* filter does with evidence of different ages. If baseline code
 ever learned about publication dates, the thing being measured would no longer
 exist. So the baseline carries provenance and never reads it, and
-`rag2/tests/test_metadata_isolation.py` fails the build if that changes — it
-scans every module under `rag2/rag2/` for executable references to date, recency
+`architecture/rag2/tests/test_metadata_isolation.py` fails the build if that changes — it
+scans every module under `architecture/rag2/rag2/` for executable references to date, recency
 or currency fields, and a companion test proves the scanner actually fires.
 
 ---
@@ -30,16 +30,16 @@ Runs the reproduced system exactly as the paper specifies, over this
 repository's corpus. Nothing here is a thesis contribution; it is the comparison
 point everything else is measured against.
 
-Entry points live in `rag2/scripts/` (one CLI per stage). Configuration:
-`rag2/configs/thesis_corpus.yaml`. Start from `rag2/README.md`, and read
-`docs/rag2_reproduction_audit.md` first for what is and is not verified.
+Entry points live in `architecture/rag2/scripts/` (one CLI per stage). Configuration:
+`architecture/rag2/configs/thesis_corpus.yaml`. Start from `architecture/rag2/README.md`, and read
+`docs/reproduction/rag2_reproduction_audit.md` first for what is and is not verified.
 
 Every run writes a manifest (resolved config, git commit, model revisions,
 seeds, prompt hashes, package versions) next to its outputs. Record the manifest
 fingerprint next to any number that reaches the thesis.
 
 **Status: runnable, not yet run.** The MedCPT index is built separately; results
-go in `rag2/docs/reproduction_results.md`, blank until measured.
+go in `docs/reproduction/reproduction_results.md`, blank until measured.
 
 ## 2. `recency_bias/` — thesis recency-bias experiments
 
@@ -51,7 +51,7 @@ per-candidate ΔPPL, `P([HELPFUL])`, keep/drop decisions, and the
 through retrieval — and correlates them with date. It does not change how any of
 them are produced.
 
-The mechanism that makes this sound is candidate replay: `rag2/rag2/cache.py`
+The mechanism that makes this sound is candidate replay: `architecture/rag2/rag2/cache.py`
 persists the retrieved-and-reranked candidate set with a retrieval fingerprint,
 so every arm provably scores the same evidence population and only the thing
 under study differs. That is validity control V3.

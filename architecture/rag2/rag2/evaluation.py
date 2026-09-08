@@ -13,7 +13,7 @@ the paper's own worked example ends "Therefore, the answer is (C) Intubation"
 (Figure 4). The patterns below are tried in order and the **last** match in the
 generation wins, since the CoT prompt puts the answer at the end. A generation
 that matches nothing counts as incorrect (``evaluation.unparsed_as_incorrect``),
-never as an abstention. See docs/rag2_reproduction.md section 6.
+never as an abstention. See docs/reproduction/rag2_reproduction.md section 6.
 """
 
 from __future__ import annotations

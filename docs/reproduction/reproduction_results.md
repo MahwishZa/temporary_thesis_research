@@ -6,7 +6,7 @@ is not adjusted to close a gap with the paper; a gap is a finding to explain, no
 a bug to tune out.
 
 Status: **not yet run.** The medical dataset and its MedCPT-embedded corpus are
-being prepared separately (see `docs/rag2_reproduction.md` section 4.1). The
+being prepared separately (see `docs/reproduction/rag2_reproduction.md` section 4.1). The
 pipeline, the filter and the evaluation are implemented and pass their tests;
 what is missing is the data.
 
@@ -89,7 +89,7 @@ downstream gap immediately.
 
 ## Discrepancies observed
 
-For each gap, name which item from `docs/rag2_reproduction.md` section 11 it is
+For each gap, name which item from `docs/reproduction/rag2_reproduction.md` section 11 it is
 attributable to, what was tested, and what the evidence was. Ordered as that
 section orders them:
 
@@ -105,5 +105,5 @@ section orders them:
 
 ## Resources that stayed unavailable
 
-Carry forward anything from `docs/rag2_reproduction.md` section 8 that could not
+Carry forward anything from `docs/reproduction/rag2_reproduction.md` section 8 that could not
 be reconstructed, so the limitations section of the thesis can cite it directly.

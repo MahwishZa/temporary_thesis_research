@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Corpus-wide QC investigation over parsed PMC articles.
 
-Read-only over the corpus: opens pmc/parsed/articles.jsonl, pmc/fulltext/manifest.csv
-and (optionally) the raw XML for verification. The only file it writes is the
-Markdown report it is asked to produce, and it refuses to overwrite anything.
+Read-only over the corpus: opens data/corpora/pmc/parsed/articles.jsonl,
+data/corpora/pmc/fulltext/manifest.csv and (optionally) the raw XML for
+verification. The only file it writes is the Markdown report it is asked to
+produce, and it refuses to overwrite anything.
 
 The central question this answers is not "which records are odd" but "is any
 oddity the parser's fault". For every flagged record it re-reads the source XML
@@ -11,9 +12,12 @@ and looks for evidence that contradicts the flag -- an <abstract> in a record
 marked no_abstract, a <sec> in one marked no_sections. A contradiction is a
 parser defect; the absence of one is source variability.
 
-    python3 pmc/qc_investigate.py                       # full report
-    python3 pmc/qc_investigate.py --no-xml              # skip raw-XML checks
-    python3 pmc/qc_investigate.py --output pmc/qc.md --force
+    python3 preprocessing/pmc/qc_investigate.py                       # full report
+    python3 preprocessing/pmc/qc_investigate.py --no-xml              # skip raw-XML checks
+    python3 preprocessing/pmc/qc_investigate.py \
+        --output docs/quality_control/pmc_qc_report_2026-09-08.md --force
+
+The default report path is docs/quality_control/pmc_qc_report_<today>.md.
 
 Requires only the Python standard library.
 """
@@ -31,10 +35,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterator
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_JSONL = REPO_ROOT / "pmc" / "parsed" / "articles.jsonl"
-DEFAULT_MANIFEST = REPO_ROOT / "pmc" / "fulltext" / "manifest.csv"
-DEFAULT_XML_DIR = REPO_ROOT / "pmc" / "fulltext" / "xml"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DEFAULT_JSONL = REPO_ROOT / "data" / "corpora" / "pmc" / "parsed" / "articles.jsonl"
+DEFAULT_MANIFEST = REPO_ROOT / "data" / "corpora" / "pmc" / "fulltext" / "manifest.csv"
+DEFAULT_XML_DIR = REPO_ROOT / "data" / "corpora" / "pmc" / "fulltext" / "xml"
 
 # Never written to, whatever is passed on the command line. Corpus data and
 # source code are inputs to this tool and must survive it untouched.
@@ -784,7 +788,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-xml", action="store_true",
                         help="skip raw-XML verification (weakens the parser-defect check)")
     parser.add_argument("--output", type=Path,
-                        default=REPO_ROOT / "pmc" / f"pmc_qc_report_{date.today().isoformat()}.md")
+                        default=REPO_ROOT / "docs" / "quality_control" / f"pmc_qc_report_{date.today().isoformat()}.md")
     parser.add_argument("--max-rows", type=int, default=250,
                         help="rows RENDERED per Markdown table; never limits analysis")
     parser.add_argument("--force", action="store_true", help="allow overwriting the report")

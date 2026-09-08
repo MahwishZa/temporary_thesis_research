@@ -7,11 +7,11 @@ and the software now *refuses* to label such a run as a result.
 | Acceptance criterion | Status | Blocker |
 | --- | --- | --- |
 | Arm A uses the **trained** RAG² perplexity filter | ❌ **not met** | The Flan-T5 checkpoint has never been trained. Training needs `torch`+`transformers` and an 8B LLM to compute the ΔPPL labels. Neither exists here. |
-| **Production MedCPT/FAISS** retrieval | ❌ **not met** | `pmc/index/` is **absent** from this container (2.4 GB, 773k vectors — it lives on the Windows machine), and no MedCPT weights are installed. |
+| **Production MedCPT/FAISS** retrieval | ❌ **not met** | `indexes/production/` is **absent** from this container (2.4 GB, 773k vectors — it lives on the Windows machine), and no MedCPT weights are installed. |
 | **Actual generated answers** | ❌ **not met** | Needs `meta-llama/Meta-Llama-3-8B-Instruct` (gated, ~16 GB). |
 
 Environment probe, this container: `torch` ABSENT · `transformers` ABSENT ·
-`faiss` ABSENT · no GPU, no `/dev/nvidia*` · `pmc/index/` ABSENT · no HF model
+`faiss` ABSENT · no GPU, no `/dev/nvidia*` · `indexes/production/` ABSENT · no HF model
 cache · local `chunks.jsonl` is the 60,874-chunk container build, not the
 781,563-chunk production layer.
 
@@ -20,15 +20,15 @@ scientific run is now a matter of hardware, not code:
 
 1. Fixed the SCAF support collapse (§5, example E in the previous version) — σ
    on the alz-016 case went from **0.033 → 1.000/0.753**.
-2. Added **15 scientific preconditions** that make an invalid run *impossible to
+2. Added **16 scientific preconditions** that make an invalid run *impossible to
    report*: `--scientific` aborts, and without it the manifest is stamped
    `DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT` with `reportable: false`.
 3. Added a canonical experiment configuration
-   (`scaf/configs/preliminary_experiment.yaml`).
+   (`experiments/configs/preliminary_experiment.yaml`).
 
 Run date 2026-09-08 · 30 questions · 600 candidates · frozen-set digest
 `151b7d54…aa8ccf3d` · manifest `reportable: false`, scientific preconditions
-**7/15**
+**7/16**
 
 ---
 
@@ -39,10 +39,10 @@ that needs evidence from the past. The corpus does not contain any.
 
 | Source | Documents | Pre-2020 | 2020+ |
 | --- | --- | --- | --- |
-| `pmc/metadata/canonical_dates.csv` (**production**, 43,409 docs) | 43,409 | **7 (0.02 %)** | 43,402 (99.98 %) |
-| `pmc/chunks/chunks.jsonl` (container build, 60,874 chunks) | 60,874 | 38 (0.06 %) | 60,836 (99.9 %) |
+| `data/corpora/pmc/metadata/canonical_dates.csv` (**production**, 43,409 docs) | 43,409 | **7 (0.02 %)** | 43,402 (99.98 %) |
+| `data/corpora/pmc/chunks/chunks.jsonl` (container build, 60,874 chunks) | 60,874 | 38 (0.06 %) | 60,836 (99.9 %) |
 
-This is not an acquisition defect. `pubmed/search_queries.txt` applies, by design,
+This is not an acquisition defect. `data/corpora/pubmed/search_queries.txt` applies, by design,
 
 ```
 ("2021/08/30"[Date - Publication] : "2026/08/30"[Date - Publication])
@@ -73,7 +73,8 @@ as the primary open question.** Everything else below works.
 
 ## 1. RAG² reproduction audit — status
 
-Full component-by-component audit: [`rag2_reproduction_audit.md`](rag2_reproduction_audit.md).
+Full component-by-component audit:
+[`docs/reproduction/rag2_reproduction_audit.md`](../reproduction/rag2_reproduction_audit.md).
 Re-verified for this milestone, with emphasis on the filter, since that is the
 component SCAF replaces.
 
@@ -106,8 +107,8 @@ filtered RAG² arm, **not yet** — the filter checkpoint does not exist. See §
 
 | Stage | Ran? | Detail |
 | --- | --- | --- |
-| Frozen candidate retrieval | ✅ real corpus | 30 questions × 20 candidates from `pmc/chunks/chunks.jsonl` |
-| Retrieval **model** | ❌ **not MedCPT** | No GPU, no `pmc/index/` and no model weights in this environment. A documented lexical (IDF-overlap) stand-in was used and is stamped `retrieval_is_medcpt: false` in the sidecar. |
+| Frozen candidate retrieval | ✅ real corpus | 30 questions × 20 candidates from `data/corpora/pmc/chunks/chunks.jsonl` |
+| Retrieval **model** | ❌ **not MedCPT** | No GPU, no `indexes/production/` and no model weights in this environment. A documented lexical (IDF-overlap) stand-in was used and is stamped `retrieval_is_medcpt: false` in the sidecar. |
 | SCAF admission | ✅ **fully real** | Deterministic over real corpus metadata and text |
 | RAG² admission (filtered) | ❌ **not run** | Needs the trained Flan-T5 checkpoint, which the RAG² authors do not distribute and which has not been trained yet |
 | RAG² admission (**w/o filter**) | ✅ real | The paper's own Table 4 ablation — a defined RAG² configuration, run as Arm A |
@@ -120,7 +121,7 @@ from these numbers. The admission comparison below is therefore
 about SCAF vs the perplexity filter.
 
 **The software now enforces this distinction.** `run_comparison.py --scientific`
-refuses to start with `passthrough`, and every run records 15 preconditions:
+refuses to start with `passthrough`, and every run records 16 preconditions:
 
 ```
 [FAIL] Arm A is the RAG2 perplexity filter      arm_a_filter='passthrough'
@@ -179,7 +180,7 @@ supervisor decision (§7).
 
 ## 4. Fairness controls — 9/9 passed
 
-Machine-readable in `scaf/runs/manifest.json` under `fairness`.
+Machine-readable in `experiments/runs/manifest.json` under `fairness`.
 
 ```
 [PASS] same questions in both arms
@@ -290,16 +291,16 @@ which mirrors the corpus, not any property of either admission policy.
 
 ```bash
 git clone https://github.com/MahwishZa/thesis_research && cd thesis_research
-python3 -m pytest scaf/tests -q                      # 65 tests, no GPU needed
+python3 -m pytest architecture/scaf/tests -q                      # 65 tests, no GPU needed
 
 # Stage 1 — freeze the upstream candidate set (development retrieval)
-python3 scaf/scripts/freeze_candidates.py --source lexical-dev --depth 20
+python3 experiments/scripts/freeze_candidates.py --source lexical-dev --depth 20
 
 # Stage 2 — run both admission policies over it
-python3 scaf/scripts/run_comparison.py --rag2-filter passthrough
+python3 experiments/scripts/run_comparison.py --rag2-filter passthrough
 ```
 
-Outputs land in `scaf/runs/` (gitignored): `frozen_candidates.jsonl`,
+Outputs land in `experiments/runs/` (gitignored): `frozen_candidates.jsonl`,
 `frozen_candidates.meta.json`, `per_question.jsonl`, `manifest.json`.
 
 **For the real run**, on the machine with the GPU, index and model weights:
@@ -324,7 +325,7 @@ python scaf\scripts\run_comparison.py --rag2-filter rag2_perplexity --rag2-check
 
 | Suite | Result |
 | --- | --- |
-| `scaf/tests` (new) | **65 passed** |
+| `architecture/scaf/tests` (new) | **65 passed** |
 | `rag2/` | 194 passed, 2 skipped (torch-gated) |
 | `pmc/` | 355 passed |
 | `pubmed/` | 51 passed |

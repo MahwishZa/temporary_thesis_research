@@ -1,6 +1,6 @@
 """Tests for the SCAF admission policy.
 
-    cd scaf && python3 -m pytest        (or: python3 -m pytest scaf/tests)
+    cd scaf && python3 -m pytest        (or: python3 -m pytest architecture/scaf/tests)
 
 Offline: no models, no GPU, no index. SCAF admission is a deterministic function
 of metadata and text, so all of it is testable here.
@@ -13,8 +13,10 @@ import sys
 
 import pytest
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_ROOT, os.path.join(_ROOT, "rag2")):
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))))
+for _p in (os.path.join(_ROOT, "architecture"),
+           os.path.join(_ROOT, "architecture", "rag2")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -310,7 +312,7 @@ class TestRegistry:
 
     def test_baseline_does_not_import_scaf(self):
         """The dependency must run one way: scaf -> rag2, never rag2 -> scaf."""
-        base = os.path.join(_ROOT, "rag2", "rag2")
+        base = os.path.join(_ROOT, "architecture", "rag2", "rag2")
         offenders = []
         for dirpath, _, filenames in os.walk(base):
             for name in filenames:

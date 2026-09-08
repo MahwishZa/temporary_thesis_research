@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Parse downloaded PMC JATS XML into one structured JSON record per article.
 
-Reads the XML files in pmc/fulltext/xml/, joins acquisition provenance from
-pmc/fulltext/manifest.csv, and writes JSONL -- one article per line.
+Reads the XML files in data/corpora/pmc/fulltext/xml/, joins acquisition provenance from
+data/corpora/pmc/fulltext/manifest.csv, and writes JSONL -- one article per line.
 
 The raw XML is opened read-only and never modified. No network access. No
 relevance judgement of any kind is applied: every article given to this parser
@@ -10,9 +10,9 @@ comes out the other side, flagged where something looks wrong rather than
 dropped.
 
 Usage:
-    python3 pmc/parse_pmc_xml.py --pmcids PMC9277667,PMC11868538   # sample
-    python3 pmc/parse_pmc_xml.py --limit 10                        # first N
-    python3 pmc/parse_pmc_xml.py                                   # everything
+    python3 preprocessing/pmc/parse_pmc_xml.py --pmcids PMC9277667,PMC11868538   # sample
+    python3 preprocessing/pmc/parse_pmc_xml.py --limit 10                        # first N
+    python3 preprocessing/pmc/parse_pmc_xml.py                                   # everything
 
 Requires only the Python standard library.
 """
@@ -34,10 +34,10 @@ from typing import Any, Iterator
 PARSER_VERSION = "1.0.0"
 SCHEMA_VERSION = "1.0"
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_XML_DIR = REPO_ROOT / "pmc" / "fulltext" / "xml"
-DEFAULT_MANIFEST = REPO_ROOT / "pmc" / "fulltext" / "manifest.csv"
-DEFAULT_OUTPUT = REPO_ROOT / "pmc" / "parsed" / "articles.jsonl"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DEFAULT_XML_DIR = REPO_ROOT / "data" / "corpora" / "pmc" / "fulltext" / "xml"
+DEFAULT_MANIFEST = REPO_ROOT / "data" / "corpora" / "pmc" / "fulltext" / "manifest.csv"
+DEFAULT_OUTPUT = REPO_ROOT / "data" / "corpora" / "pmc" / "parsed" / "articles.jsonl"
 
 # Below this many body words an article is almost certainly a placeholder
 # rather than a paper. PMC13405269 -- a preprint whose licence blocks PMC from
@@ -781,8 +781,8 @@ def load_manifest(path: Path) -> dict[str, dict[str, str]]:
 
 def assert_safe_output(output: Path, xml_dir: Path) -> None:
     resolved = output.resolve()
-    if (REPO_ROOT / "pubmed").resolve() in resolved.parents:
-        raise SystemExit("ERROR: this tool must never write under pubmed/.")
+    if (REPO_ROOT / "data" / "corpora" / "pubmed").resolve() in resolved.parents:
+        raise SystemExit("ERROR: this tool must never write under data/corpora/pubmed/.")
     if xml_dir.resolve() in resolved.parents or resolved == xml_dir.resolve():
         raise SystemExit("ERROR: refusing to write inside the raw XML directory.")
 

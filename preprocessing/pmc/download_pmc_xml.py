@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Safe, resumable downloader for PMC full-text XML.
 
-Reads the validated inventory at pmc/pmc_oa_inventory.csv, selects the records
+Reads the validated inventory at data/corpora/pmc/pmc_oa_inventory.csv, selects the records
 where has_xml == "yes", and downloads each article's JATS XML from the PMC Cloud
 Service. Every file is verified against the MD5 that the inventory already
 carries, so a download either matches the expected bytes or is treated as a
@@ -26,10 +26,10 @@ ACQUISITION, NOT SELECTION
     separate and reversible step.
 
 Usage:
-    python3 pmc/download_pmc_xml.py --list-only      # plan, no network at all
-    python3 pmc/download_pmc_xml.py --limit 5        # small test run
-    python3 pmc/download_pmc_xml.py                  # full run (deliberate)
-    python3 pmc/download_pmc_xml.py                  # run again to resume
+    python3 preprocessing/pmc/download_pmc_xml.py --list-only      # plan, no network at all
+    python3 preprocessing/pmc/download_pmc_xml.py --limit 5        # small test run
+    python3 preprocessing/pmc/download_pmc_xml.py                  # full run (deliberate)
+    python3 preprocessing/pmc/download_pmc_xml.py                  # run again to resume
 
 Requires only the Python standard library.
 """
@@ -50,9 +50,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_INVENTORY = REPO_ROOT / "pmc" / "pmc_oa_inventory.csv"
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "pmc" / "fulltext"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DEFAULT_INVENTORY = REPO_ROOT / "data" / "corpora" / "pmc" / "pmc_oa_inventory.csv"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "corpora" / "pmc" / "fulltext"
 
 # The PMC Cloud Service bucket. The inventory stores s3:// URLs; the same object
 # is readable over plain HTTPS at this prefix, so no credentials are needed.
@@ -196,24 +196,24 @@ def read_candidates(path: Path) -> tuple[list[dict[str, str]], list[dict[str, st
 
 
 # ---------------------------------------------------------------------------
-# Output layout, and the guard that keeps us out of pubmed/
+# Output layout, and the guard that keeps us out of data/corpora/pubmed/
 # ---------------------------------------------------------------------------
 
 
 def assert_safe_output_dir(output_dir: Path, inventory: Path) -> None:
     """Refuse to write anywhere that could damage validated source data."""
     resolved = output_dir.resolve()
-    protected = (REPO_ROOT / "pubmed").resolve()
+    protected = (REPO_ROOT / "data" / "corpora" / "pubmed").resolve()
     if resolved == protected or protected in resolved.parents:
         raise SystemExit(
             f"REFUSING TO RUN: output directory {resolved} is inside {protected}.\n"
-            "This tool must never write under pubmed/."
+            "This tool must never write under data/corpora/pubmed/."
         )
     if resolved == inventory.resolve().parent and output_dir.name != "fulltext":
         # Writing straight into pmc/ risks clobbering the inventory beside it.
         raise SystemExit(
             f"REFUSING TO RUN: output directory {resolved} holds the inventory.\n"
-            "Use a subdirectory such as pmc/fulltext."
+            "Use a subdirectory such as data/corpora/pmc/fulltext."
         )
 
 

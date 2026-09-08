@@ -31,8 +31,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-_ROOT = Path(__file__).resolve().parent.parent
-for _p in (str(_ROOT), str(_ROOT / "rag2")):
+_ROOT = Path(__file__).resolve().parent.parent.parent
+for _p in (str(_ROOT / "architecture"), str(_ROOT / "architecture" / "rag2")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

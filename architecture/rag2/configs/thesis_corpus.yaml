@@ -1,30 +1,33 @@
 # The original RAG2 baseline, retrieving over THIS repository's corpus.
 #
 # Inherit from this file rather than corpora.example.yaml when running the
-# baseline on the Alzheimer/dementia corpus built under pmc/. It changes only
-# where evidence comes from; every method-level setting stays at the value
-# docs/rag2_reproduction.md justifies from the paper.
+# baseline on the Alzheimer/dementia corpus under data/corpora/pmc/. It changes
+# only where evidence comes from; every method-level setting stays at the value
+# docs/reproduction/rag2_reproduction.md justifies from the paper.
 #
 # Prerequisites, both built on the machine holding the MedCPT weights:
-#     python pmc/build_chunks.py          ->  pmc/chunks/chunks.jsonl
-#     python pmc/embed_chunks.py          ->  pmc/index/{embeddings.f32,
-#                                             index_manifest.jsonl, index_meta.json}
+#     python preprocessing/pmc/build_chunks.py
+#         ->  data/corpora/pmc/chunks/chunks.jsonl
+#     python preprocessing/pmc/embed_chunks.py
+#         ->  indexes/production/{embeddings.f32, index_manifest.jsonl,
+#                                 index_meta.json}
 # Neither is committed (see .gitignore); both are deterministic rebuilds.
 #
 # Corpus paths below are relative to the REPOSITORY ROOT, so run the stage
 # scripts from there:
-#     python rag2/scripts/02_retrieve.py -c rag2/configs/thesis_corpus.yaml
+#     python architecture/rag2/scripts/02_retrieve.py \
+#         -c architecture/rag2/configs/thesis_corpus.yaml
 # (or override with -o retrieval.corpora[0].options.index_dir=... for a copy
 # held elsewhere).
 #
 # Balanced retrieval (paper section 3.4) draws an equal quota from each corpus.
 # The paper has four; this corpus has three source categories, so the quota is
-# split three ways. docs/rag2_reproduction_audit.md section 4 records what that
-# substitution does and does not change.
+# split three ways. docs/reproduction/rag2_reproduction_audit.md section 4
+# records what that substitution does and does not change.
 
 experiment:
   name: rag2-baseline-thesis-corpus
-  notes: "Original RAG2 baseline over the pmc/ corpus. No thesis extension."
+  notes: "Original RAG2 baseline over the thesis PMC corpus. No thesis extension."
   seed: 42
 
 dataset:
@@ -35,9 +38,9 @@ dataset:
   split: test
 
 retrieval:
-  # [S] MedCPT throughout -- the paper's retriever, and the encoder pmc/embed_chunks.py
-  # used to build the index. Do not substitute another model: the vectors on disk
-  # are MedCPT vectors.
+  # [S] MedCPT throughout -- the paper's retriever, and the encoder
+  # preprocessing/pmc/embed_chunks.py used to build the index. Do not substitute
+  # another model: the vectors on disk are MedCPT vectors.
   query_encoder: ncbi/MedCPT-Query-Encoder
   article_encoder: ncbi/MedCPT-Article-Encoder
   reranker: ncbi/MedCPT-Cross-Encoder
@@ -52,8 +55,8 @@ retrieval:
     - name: pubmed-abstract
       loader: thesis_chunks
       options: &thesis_chunk_options
-        index_dir: pmc/index
-        chunks_path: pmc/chunks/chunks.jsonl
+        index_dir: indexes/production
+        chunks_path: data/corpora/pmc/chunks/chunks.jsonl
         # Exact-duplicate chunks are flagged (not deleted) by build_chunks.py and
         # skipped by embed_chunks.py, so this is belt-and-braces.
         drop_duplicate_chunks: true

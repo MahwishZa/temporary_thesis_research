@@ -1,6 +1,6 @@
 """Generator INTERFACE tests. These do NOT execute a real model.
 
-    python3 -m pytest scaf/tests/test_generation.py
+    python3 -m pytest architecture/scaf/tests/test_generation.py
 
 torch, transformers and the 8B checkpoint are absent from this container, so
 nothing here loads a model. What is tested is the contract around it: that both
@@ -11,7 +11,7 @@ missing dependency produces an actionable error instead of a downgrade.
 
 A fake LLM is injected through ``build_generator(..., llm=...)``, which the
 scientific path does not expose. Real-model execution is a Windows/GPU concern
-and is explicitly out of scope here -- see docs/windows_experiment_runbook.md.
+and is explicitly out of scope here -- see docs/runbooks/windows_experiment_runbook.md.
 """
 
 import os
@@ -19,8 +19,10 @@ import sys
 
 import pytest
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_ROOT, os.path.join(_ROOT, "rag2")):
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))))
+for _p in (os.path.join(_ROOT, "architecture"),
+           os.path.join(_ROOT, "architecture", "rag2")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -287,12 +289,14 @@ class TestBothArmsShareOneGenerator:
 
 class TestNoMockOnTheScientificPath:
     def test_build_generator_does_not_accept_an_llm_from_the_cli(self):
-        """The injection point exists for tests only; the runner must not expose it."""
-        import inspect
+        """The injection point exists for tests only; the runner must not expose it.
 
-        from scaf.scripts import run_comparison
-
-        source = inspect.getsource(run_comparison)
+        Read as text rather than imported: the runner is a CLI script under
+        experiments/, not an importable module of this package.
+        """
+        path = os.path.join(_ROOT, "experiments", "scripts", "run_comparison.py")
+        with open(path, encoding="utf-8") as fh:
+            source = fh.read()
         assert "llm=" not in source, "the runner must never inject a fake LLM"
 
     def test_arm_generator_requires_a_real_backend_object(self):
@@ -311,7 +315,7 @@ class TestTrainingPathDependencies:
     """
 
     def _requirements(self):
-        path = os.path.join(_ROOT, "rag2", "requirements.txt")
+        path = os.path.join(_ROOT, "architecture", "rag2", "requirements.txt")
         with open(path, encoding="utf-8") as fh:
             return [line.strip() for line in fh
                     if line.strip() and not line.strip().startswith("#")]
@@ -325,12 +329,12 @@ class TestTrainingPathDependencies:
     def test_training_script_imports_are_declared(self, package):
         assert package in self._declared(), (
             f"classifier/run_classifier.py imports {package} at module level but "
-            "rag2/requirements.txt does not declare it; filter training would fail "
+            "architecture/rag2/requirements.txt does not declare it; filter training would fail "
             "on a fresh environment")
 
     def test_the_authors_script_still_imports_what_we_claim(self):
         """If upstream changes, this guard must be updated rather than drift."""
-        path = os.path.join(_ROOT, "rag2", "classifier", "run_classifier.py")
+        path = os.path.join(_ROOT, "architecture", "rag2", "classifier", "run_classifier.py")
         with open(path, encoding="utf-8") as fh:
             source = fh.read()
         for package in ("import torch", "import nltk", "import datasets",

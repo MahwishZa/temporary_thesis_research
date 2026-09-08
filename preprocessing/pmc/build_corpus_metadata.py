@@ -3,14 +3,15 @@
 
 This script does NOT modify the raw acquisition corpus, the PMC XML, the parsed
 records, the manifest, the inventory, the PubMed pipeline, or search_queries.txt.
-It reads them and writes derived overlay files under pmc/metadata/ and the
-externally-added currency-pack layer under pmc/currency_pack/.
+It reads them and writes derived overlay files under data/corpora/pmc/metadata/
+and the externally-added currency-pack layer under
+data/corpora/pmc/currency_pack/. Paths below are relative to data/corpora/pmc/:
 
-    M1  currency pack        -> pmc/metadata/currency_pack.csv
-                                pmc/currency_pack/{xml,parsed}/PMC13082890.*
-    M2  CPG-AD layer (seed)  -> pmc/metadata/cpg_registry.csv   (see the STOP note)
-    M3  canonical dates      -> pmc/metadata/canonical_dates.csv
-    M4  corpus policy        -> pmc/metadata/corpus_policy.csv
+    M1  currency pack        -> metadata/currency_pack.csv
+                                currency_pack/{xml,parsed}/PMC13082890.*
+    M2  CPG-AD layer (seed)  -> metadata/cpg_registry.csv   (see the STOP note)
+    M3  canonical dates      -> metadata/canonical_dates.csv
+    M4  corpus policy        -> metadata/corpus_policy.csv
 
 Every overlay is keyed by pmcid (M1/M2/M3/M4 on the PMC layer) or pmid (the
 PubMed abstract layer in M3/M4) and joins back to the existing records without
@@ -39,13 +40,13 @@ from typing import Any, Iterable
 
 csv.field_size_limit(2**31 - 1 if sys.maxsize > 2**32 else 2**27)
 
-REPO = Path(__file__).resolve().parent.parent
-DEFAULT_MANIFEST = REPO / "pmc" / "fulltext" / "manifest.csv"
-DEFAULT_PUBMED = REPO / "pubmed" / "pubmed_results.csv"
-DEFAULT_ARTICLES = REPO / "pmc" / "parsed" / "articles.jsonl"
-DEFAULT_REPORT = REPO / "pmc" / "pmc_qc_report_2026-09-03-postfix.md"
-DEFAULT_OUT = REPO / "pmc" / "metadata"
-DEFAULT_CURRENCY_DIR = REPO / "pmc" / "currency_pack"
+REPO = Path(__file__).resolve().parent.parent.parent
+DEFAULT_MANIFEST = REPO / "data" / "corpora" / "pmc" / "fulltext" / "manifest.csv"
+DEFAULT_PUBMED = REPO / "data" / "corpora" / "pubmed" / "pubmed_results.csv"
+DEFAULT_ARTICLES = REPO / "data" / "corpora" / "pmc" / "parsed" / "articles.jsonl"
+DEFAULT_REPORT = REPO / "docs" / "quality_control" / "pmc_qc_report_2026-09-03-postfix.md"
+DEFAULT_OUT = REPO / "data" / "corpora" / "pmc" / "metadata"
+DEFAULT_CURRENCY_DIR = REPO / "data" / "corpora" / "pmc" / "currency_pack"
 
 # The counterfactual index boundary (proposal 6.4): the June-2024 criteria
 # revision. Records earlier than this month are "pre", the rest "post".
@@ -533,7 +534,7 @@ def ingest_cochrane(currency_dir: Path, *, allow_fetch: bool) -> dict:
 
     observed = sha_md5(xml_path)
     # Parse with the project parser so the record matches the corpus schema.
-    sys.path.insert(0, str(REPO / "pmc"))
+    sys.path.insert(0, str(REPO / "preprocessing" / "pmc"))
     import parse_pmc_xml as pp  # noqa: E402
     record = pp.parse_article(xml_path, {
         "pmcid": COCHRANE_PMCID, "pmid": "41985900",

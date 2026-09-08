@@ -60,12 +60,12 @@ GPU device indices (`cuda:7` in `retriever/query_encode.py`, device `2` in
 `retriever/rerank.py`) and dataset paths; adjust them to your environment. These
 are documented in the per-component READMEs.
 
-> **Where you are.** This tree lives at `rag2/` inside the `thesis_research`
-> repository, as the **baseline** for the MS thesis *"Does the Filter Prefer the
-> Past?"*. Start with the repository-level audit,
-> [`../docs/rag2_reproduction_audit.md`](../docs/rag2_reproduction_audit.md):
+> **Where you are.** This tree lives at `architecture/rag2/` inside the
+> `thesis_research` repository, as the **baseline** for the MS thesis *"Does the
+> Filter Prefer the Past?"*. Start with the repository-level audit,
+> [`docs/reproduction/rag2_reproduction_audit.md`](../../docs/reproduction/rag2_reproduction_audit.md):
 > it says what was verified, what was corrected, and what is still unverified.
-> The thesis extension is **not** implemented here — see `../experiments/README.md`
+> The thesis extension is **not** implemented here — see `experiments/README.md`
 > for the boundary.
 
 ## Reproduction of the original system (`rag2/`)
@@ -78,11 +78,12 @@ separate on purpose:
 | --- | --- |
 | `retriever/`, `classifier/` | the authors' released code, **unmodified** |
 | `rag2/`, `configs/`, `scripts/`, `tests/` | the reproduction |
-| `docs/rag2_reproduction.md` | what the paper specifies, what it leaves open, and every assumption made |
-| `docs/reproduction_results.md` | measured results and their discrepancies vs. the paper |
+| `docs/reproduction/rag2_reproduction.md` (repository root) | what the paper specifies, what it leaves open, and every assumption made |
+| `docs/reproduction/reproduction_results.md` (repository root) | measured results and their discrepancies vs. the paper |
 
-Start with **[`docs/rag2_reproduction.md`](docs/rag2_reproduction.md)**. It records,
-component by component, what is explicitly specified `[S]`, what is ambiguous and
+Start with
+**[`docs/reproduction/rag2_reproduction.md`](../../docs/reproduction/rag2_reproduction.md)**.
+It records, component by component, what is explicitly specified `[S]`, what is ambiguous and
 which reading was adopted `[A]`, what is unavailable and whether it can be
 reconstructed `[U]`, and where the paper and the released code disagree `[D]` —
 including two discrepancies that change behaviour (which query the reranker
@@ -139,10 +140,7 @@ preserved end to end as **metadata only**; no baseline component reads it, which
 ## Repository structure
 
 ```
-RAG2/
-├── docs/
-│   ├── rag2_reproduction.md   # Specification: what the paper fixes, and every assumption
-│   └── reproduction_results.md# Measured results and discrepancies vs. the paper
+architecture/rag2/
 ├── rag2/                      # Reproduction package
 │   ├── config.py              # Typed config, loaded from configs/*.yaml
 │   ├── schema.py              # Question / Evidence / CandidateSet (+ provenance)

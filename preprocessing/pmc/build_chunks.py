@@ -50,12 +50,12 @@ from typing import Any, Iterator
 
 csv.field_size_limit(2**31 - 1 if sys.maxsize > 2**32 else 2**27)
 
-REPO = Path(__file__).resolve().parent.parent
-DEFAULT_ARTICLES = REPO / "pmc" / "parsed" / "articles.jsonl"
-DEFAULT_COCHRANE = REPO / "pmc" / "currency_pack" / "parsed" / "PMC13082890.json"
-DEFAULT_PUBMED = REPO / "pubmed" / "pubmed_results.csv"
-DEFAULT_META = REPO / "pmc" / "metadata"
-DEFAULT_OUT = REPO / "pmc" / "chunks"
+REPO = Path(__file__).resolve().parent.parent.parent
+DEFAULT_ARTICLES = REPO / "data" / "corpora" / "pmc" / "parsed" / "articles.jsonl"
+DEFAULT_COCHRANE = REPO / "data" / "corpora" / "pmc" / "currency_pack" / "parsed" / "PMC13082890.json"
+DEFAULT_PUBMED = REPO / "data" / "corpora" / "pubmed" / "pubmed_results.csv"
+DEFAULT_META = REPO / "data" / "corpora" / "pmc" / "metadata"
+DEFAULT_OUT = REPO / "data" / "corpora" / "pmc" / "chunks"
 
 WINDOW_WORDS = 256
 OVERLAP_WORDS = 32

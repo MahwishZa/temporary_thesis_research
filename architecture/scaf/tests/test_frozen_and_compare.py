@@ -11,8 +11,10 @@ import sys
 
 import pytest
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_ROOT, os.path.join(_ROOT, "rag2")):
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))))
+for _p in (os.path.join(_ROOT, "architecture"),
+           os.path.join(_ROOT, "architecture", "rag2")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -86,7 +88,7 @@ class TestFrozenCandidateSet:
     def test_round_trips_through_disk(self, tmp_path):
         path = str(tmp_path / "frozen.jsonl")
         original = [make_set("q1"), make_set("q2", n=3)]
-        meta = save(path, original, provenance={"index": "pmc/index"})
+        meta = save(path, original, provenance={"index": "indexes/production"})
         reloaded = load(path, expected_digest=meta["frozen_set_digest"])
         assert [s.qid for s in reloaded] == ["q1", "q2"]
         assert [c.chunk_id for c in reloaded[0].candidates] == \
@@ -200,7 +202,7 @@ class TestFairness:
         base = {
             "arm_a_generator": "stub", "arm_b_generator": "stub",
             "arm_a_generation": {"temperature": 0.0}, "arm_b_generation": {"temperature": 0.0},
-            "arm_a_index": "pmc/index", "arm_b_index": "pmc/index",
+            "arm_a_index": "indexes/production", "arm_b_index": "indexes/production",
         }
         base.update(overrides)
         return base

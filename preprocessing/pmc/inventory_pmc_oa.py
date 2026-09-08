@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Read-only PMC Open Access / reuse inventory.
 
-For every PMCID in pubmed/pubmed_results.csv this asks the PMC Cloud Service
+For every PMCID in data/corpora/pubmed/pubmed_results.csv this asks the PMC Cloud Service
 whether the article is in the PMC open-access dataset and, if so, under what
-licence and where its files live. It writes pmc/pmc_oa_inventory.csv.
+licence and where its files live. It writes data/corpora/pmc/pmc_oa_inventory.csv.
 
 It does NOT download any full text -- only the small per-article metadata
-record (roughly 1.5 KB each). It never writes to anything under pubmed/.
+record (roughly 1.5 KB each). It never writes to anything under data/corpora/pubmed/.
 
 Why this service: the old PMC OA Web Service API (pmc/utils/oa/oa.fcgi) was
 retired on or after 24 August 2026, along with the FTP Service and the legacy
@@ -17,9 +17,9 @@ https://pmc.ncbi.nlm.nih.gov/tools/pmcaws/. The bucket is public, so no AWS
 account, credentials or extra libraries are needed: plain HTTPS is enough.
 
 Usage:
-    python3 pmc/inventory_pmc_oa.py --limit 25    # small test first
-    python3 pmc/inventory_pmc_oa.py               # the whole set
-    python3 pmc/inventory_pmc_oa.py               # run again to resume
+    python3 preprocessing/pmc/inventory_pmc_oa.py --limit 25    # small test first
+    python3 preprocessing/pmc/inventory_pmc_oa.py               # the whole set
+    python3 preprocessing/pmc/inventory_pmc_oa.py               # run again to resume
 
 Requires only the Python standard library.
 """
@@ -44,10 +44,10 @@ from typing import Any
 # Settings. Everything here can be overridden from the command line.
 # ---------------------------------------------------------------------------
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_INPUT = REPO_ROOT / "pubmed" / "pubmed_results.csv"
-DEFAULT_OUTPUT = REPO_ROOT / "pmc" / "pmc_oa_inventory.csv"
-DEFAULT_FAILURES = REPO_ROOT / "pmc" / "pmc_oa_failures.csv"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DEFAULT_INPUT = REPO_ROOT / "data" / "corpora" / "pubmed" / "pubmed_results.csv"
+DEFAULT_OUTPUT = REPO_ROOT / "data" / "corpora" / "pmc" / "pmc_oa_inventory.csv"
+DEFAULT_FAILURES = REPO_ROOT / "data" / "corpora" / "pmc" / "pmc_oa_failures.csv"
 
 # The public PMC Cloud Service bucket, reachable over ordinary HTTPS.
 BUCKET_URL = "https://pmc-oa-opendata.s3.amazonaws.com/"

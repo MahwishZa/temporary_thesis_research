@@ -2,7 +2,7 @@
 """Offline tests for the PMC open-access inventory script.
 
 Nothing here touches the network, and nothing reads or writes anything under
-pubmed/. Everything runs against temporary files.
+data/corpora/pubmed/. Everything runs against temporary files.
 
 The centrepiece is WindowsCsvLimitTests, which reproduces the OverflowError
 that stopped the script on Windows and proves the fix. On Windows a C "long"

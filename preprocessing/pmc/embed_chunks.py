@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Deterministic embedding + index construction over the frozen chunk layer.
 
-Reads pmc/chunks/chunks.jsonl (frozen, unmodified) and writes an additive index
-layer under pmc/index/:
+Reads data/corpora/pmc/chunks/chunks.jsonl (frozen, unmodified) and writes an additive index
+layer under indexes/production/:
 
     embeddings.f32      row-major float32 vectors, one row per chunk
     index_manifest.jsonl  row -> chunk_id + the metadata retrieval needs
@@ -56,9 +56,9 @@ import sys
 from pathlib import Path
 from typing import Iterable, Iterator
 
-REPO = Path(__file__).resolve().parent.parent
-DEFAULT_CHUNKS = REPO / "pmc" / "chunks" / "chunks.jsonl"
-DEFAULT_OUT = REPO / "pmc" / "index"
+REPO = Path(__file__).resolve().parent.parent.parent
+DEFAULT_CHUNKS = REPO / "data" / "corpora" / "pmc" / "chunks" / "chunks.jsonl"
+DEFAULT_OUT = REPO / "indexes" / "production"
 
 ARTICLE_ENCODER = "ncbi/MedCPT-Article-Encoder"
 QUERY_ENCODER = "ncbi/MedCPT-Query-Encoder"

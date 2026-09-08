@@ -6,7 +6,7 @@
 Medical Question Answering*, NAACL 2025
 ([2025.naacl-long.635](https://aclanthology.org/2025.naacl-long.635/); arXiv
 2411.00300), read in full including Appendix A, plus the authors' released code
-under `rag2/retriever/` and `rag2/classifier/`.
+under `architecture/rag2/retriever/` and `architecture/rag2/classifier/`.
 **Date:** 2026-09-04.
 **Verdict (§9):** READY WITH MINOR FIXES — the fixes are applied.
 
@@ -105,19 +105,19 @@ already keeps them apart. Integrated at `rag2/`:
 
 | Path | What it is | Provenance |
 | --- | --- | --- |
-| `rag2/retriever/` | MedCPT encoding, MIPS, reranking | **the authors' released code, unmodified** |
-| `rag2/classifier/` | Flan-T5 filter training + metrics | **the authors' released code, unmodified** |
-| `rag2/rag2/` | the reproduction package (31 modules) | this work |
-| `rag2/configs/` | 10 experiment configs (YAML, with inheritance) | this work |
-| `rag2/scripts/` | 8 scripts — one CLI per stage, plus the smoke test and its fixture builder | this work |
-| `rag2/tests/` | 15 test modules | this work |
-| `rag2/docs/rag2_reproduction.md` | the reproduction's own specification, ~700 lines | this work |
-| `rag2/docs/reproduction_results.md` | results template, **blank — nothing run yet** | this work |
+| `architecture/rag2/retriever/` | MedCPT encoding, MIPS, reranking | **the authors' released code, unmodified** |
+| `architecture/rag2/classifier/` | Flan-T5 filter training + metrics | **the authors' released code, unmodified** |
+| `architecture/rag2/rag2/` | the reproduction package (31 modules) | this work |
+| `architecture/rag2/configs/` | 10 experiment configs (YAML, with inheritance) | this work |
+| `architecture/rag2/scripts/` | 8 scripts — one CLI per stage, plus the smoke test and its fixture builder | this work |
+| `architecture/rag2/tests/` | 15 test modules | this work |
+| `docs/reproduction/rag2_reproduction.md` | the reproduction's own specification, ~700 lines | this work |
+| `docs/reproduction/reproduction_results.md` | results template, **blank — nothing run yet** | this work |
 
 Reproduction package layout:
 
 ```
-rag2/rag2/
+architecture/rag2/rag2/
   config.py            typed config; every key tagged [S] specified or [A] assumed
   schema.py            Question / Evidence / CandidateSet / FilterDecision / PipelineResult
   prompts.py           versioned templates, hashed into every run manifest
@@ -342,7 +342,7 @@ transformers, and records what it seeded. This is documented, not hidden.
 ### 3.7 Baseline/thesis separation — **CORRECT / FAITHFUL**
 
 I checked this by grep rather than by reading the claim: no module under
-`rag2/rag2/` references SCAF, recency, currency, supersession, retraction,
+`architecture/rag2/rag2/` references SCAF, recency, currency, supersession, retraction,
 contested evidence, abstention, entailment, authority tiers or temporal logic in
 executable code. The only hits are docstrings explaining that provenance is
 carried and not consulted.
@@ -404,7 +404,7 @@ not to rewrite what is correct.
 
 ### 6.1 A documentation claim that was not true (fixed)
 
-Both `rag2/filtering/rag2_filter.py` and `docs/rag2_reproduction.md` §5.6 stated
+Both `architecture/rag2/rag2/filtering/rag2_filter.py` and `docs/reproduction/rag2_reproduction.md` §5.6 stated
 that `tests/test_filter_scoring.py` "pins the equivalence" between the
 single-forward-pass scoring path and the release's
 `generate(..., output_scores=True).scores[0]`. **It does not.** That file's only
@@ -419,7 +419,7 @@ described as pinned is exactly the kind of thing this audit exists to catch.
 
 Fixed two ways:
 
-* Added `rag2/tests/test_filter_first_token_logits.py` (5 tests) covering the
+* Added `architecture/rag2/tests/test_filter_first_token_logits.py` (5 tests) covering the
   half this repository owns: both branches read decoder position 0, use the
   configured start token (falling back to pad), slice the same two label columns,
   and reach the same `P([HELPFUL])`. It poisons decoder positions 1+ so reading
@@ -439,8 +439,8 @@ could not. `corpora/json_corpus.py` reads the release's layout
 (`*_Articles_*.json` + `*_Embeds_*.npy`); `pmc/` produces `chunks.jsonl` plus
 `embeddings.f32` + `index_manifest.jsonl` + `index_meta.json`. No adapter existed.
 
-Added `rag2/rag2/corpora/thesis_chunks.py`, registered as loader
-`thesis_chunks`, plus `rag2/configs/thesis_corpus.yaml`. It is additive: no
+Added `architecture/rag2/rag2/corpora/thesis_chunks.py`, registered as loader
+`thesis_chunks`, plus `architecture/rag2/configs/thesis_corpus.yaml`. It is additive: no
 baseline module changed. Design points, each driven by something real in the
 existing artifacts:
 
@@ -456,7 +456,7 @@ existing artifacts:
 * **One instance per `source_category`**, which is what keeps balanced retrieval
   meaningful over three corpora instead of four.
 * **`require_production_index: true` by default** — a stub-encoder index is
-  refused, mirroring the guard already in `pmc/embed_chunks.py`.
+  refused, mirroring the guard already in `preprocessing/pmc/embed_chunks.py`.
 * **Provenance carried, never promoted into text.** Every manifest field except
   identity lands in `Evidence.metadata`, so `canonical_date`,
   `authority_tier_label`, `in_currency_pack` and `retracted` reach the thesis
@@ -464,7 +464,7 @@ existing artifacts:
 * Vectors are memory-mapped and yielded in bounded shards, so a category holding
   hundreds of thousands of rows does not materialise at once.
 
-18 tests added (`rag2/tests/test_thesis_chunk_corpus.py`), including an
+18 tests added (`architecture/rag2/tests/test_thesis_chunk_corpus.py`), including an
 end-to-end check that `balanced_retrieve` draws an equal quota from all three
 corpora through this loader, and a guard pinning `configs/thesis_corpus.yaml` to
 MedCPT, 768 dims, `rerank_query: initial` and `shard_merge: score`.
@@ -486,7 +486,7 @@ reader must know they are deliberate:
 
 ### 6.4 What I deliberately did not change
 
-* `rag2/retriever/` and `rag2/classifier/` — the authors' release stays byte-
+* `architecture/rag2/retriever/` and `architecture/rag2/classifier/` — the authors' release stays byte-
   identical so it remains citable.
 * The two `[D]` switches keep their paper-following defaults. They are research
   questions, not bugs.
@@ -510,8 +510,8 @@ After the additions, on the same environment:
 | Suite | Result |
 | --- | --- |
 | `rag2/` full suite | **194 passed, 2 skipped** (both skips are torch-gated modules) |
-| `rag2/tests/test_thesis_chunk_corpus.py` (new) | **18 passed** |
-| `rag2/tests/test_filter_first_token_logits.py` (new) | 5 tests, **module skipped** — needs torch |
+| `architecture/rag2/tests/test_thesis_chunk_corpus.py` (new) | **18 passed** |
+| `architecture/rag2/tests/test_filter_first_token_logits.py` (new) | 5 tests, **module skipped** — needs torch |
 | `pmc/` (7 modules) | **311 passed** — unaffected |
 | `pubmed/` (2 modules) | **51 passed** — unaffected |
 
@@ -537,8 +537,8 @@ reproduction's own documentation:
   / 4,183 / 6,150; MMLU-Med 1,089.
 * **Round-tripped the filter prompt and option serialisation** against the
   authors' released `5%-train.json`: byte-identical.
-* Grepped `rag2/rag2/`, `rag2/retriever/`, `rag2/classifier/`, `rag2/configs/`
-  and `rag2/scripts/` for thesis-concept leakage. None in executable code.
+* Grepped `architecture/rag2/rag2/`, `architecture/rag2/retriever/`, `architecture/rag2/classifier/`, `architecture/rag2/configs/`
+  and `architecture/rag2/scripts/` for thesis-concept leakage. None in executable code.
 * Verified that all six stage CLIs plus the fixture builder load and parse their
   arguments, and ran `smoke_test.py` in full.
 
@@ -588,11 +588,11 @@ have, and I did not fabricate a run of any of them:
 | ΔPPL over a real LLM | torch, an 8B backbone | Yes — formula and tree pinned; stub LLM exercises the path |
 | Answer generation | torch, an 8B backbone | Yes — stub backend exercises the path |
 | faiss `IndexFlatIP` | faiss | Yes — numpy fallback is mathematically identical and is what ran |
-| Retrieval over the real index | `pmc/index/` (built separately on Windows, still running) | Loader verified against synthetic fixtures with the real schema |
+| Retrieval over the real index | `indexes/production/` (built separately on Windows, still running) | Loader verified against synthetic fixtures with the real schema |
 
 **Not run, and not runnable here:** the reproduction over real data. There are no
 measured accuracy numbers in this repository, and
-`rag2/docs/reproduction_results.md` correctly says "**Status: not yet run**" with
+`docs/reproduction/reproduction_results.md` correctly says "**Status: not yet run**" with
 every result cell blank and an explicit instruction to "leave a row blank rather
 than estimating it". I verified that document contains no fabricated results.
 
@@ -625,7 +625,7 @@ disqualifying:
 What must happen before baseline numbers exist, in order: build the MedCPT index
 (running separately) → generate rationales → retrieve and cache → build ΔPPL
 labels → train the filter → run the pipeline → evaluate → record in
-`rag2/docs/reproduction_results.md` with manifest fingerprints.
+`docs/reproduction/reproduction_results.md` with manifest fingerprints.
 
 ---
 
@@ -641,12 +641,12 @@ labels → train the filter → run the pipeline → evaluate → record in
   pass.
 * That `generate().scores[0]` equals the forward-pass logits (§6.1). Argued from
   decoding semantics; not asserted.
-* Retrieval over the real `pmc/index/`, which does not exist yet in this
+* Retrieval over the real `indexes/production/`, which does not exist yet in this
   container.
 
 **Unverifiable from here regardless of environment:**
 
-* The reproduction's claim that `rag2/retriever/` and `rag2/classifier/` are
+* The reproduction's claim that `architecture/rag2/retriever/` and `architecture/rag2/classifier/` are
   byte-identical to upstream `dmis-lab/RAG2 @ 86add43`. This session's GitHub
   access is scoped to `MahwishZa/thesis_research`, so I could not clone upstream
   to diff. The claim is plausible and internally consistent, but **it is the
@@ -656,8 +656,8 @@ labels → train the filter → run the pipeline → evaluate → record in
 
 **Known gaps in the artifact itself:**
 
-* `rag2/docs/reproduction_results.md` is a blank template.
-* The committed `pmc/chunks/chunk_stats.json` records a **partial** container run
+* `docs/reproduction/reproduction_results.md` is a blank template.
+* The committed `data/corpora/pmc/chunks/chunk_stats.json` records a **partial** container run
   (60,874 chunks over 76 parsed records, most documents abstract-only), not the
   production Windows run reported as 42,964 documents / 781,563 chunks / 773,183
   unique / 8,380 duplicates flagged, digest `da1886b0…`. I did not have the full
@@ -710,7 +710,7 @@ hard-coded constant; nothing in the baseline presupposes an ordering, so that
 stays open.
 
 **The boundary is machine-checked.** `test_metadata_isolation.py` scans every
-module under `rag2/rag2/` for executable references to publication, recency or
+module under `architecture/rag2/rag2/` for executable references to publication, recency or
 currency fields and fails if one appears — and proves the scanner works by
 feeding it real violations. If SCAF logic is ever written into the baseline
 instead of layered on top, the build breaks. That is deliberate: the thesis

@@ -1,5 +1,5 @@
 # Reproduces the *released code's* retrieval behaviour rather than the paper's
-# text, so the two discrepancies of docs/rag2_reproduction.md 4.2 and 4.3 can be
+# text, so the two discrepancies of docs/reproduction/rag2_reproduction.md 4.2 and 4.3 can be
 # measured instead of argued about.
 
 base: medqa_llama3.yaml

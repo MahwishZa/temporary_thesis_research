@@ -3,7 +3,7 @@
 
 No test here touches the network: urlopen is replaced by a fake that serves
 bytes from an in-memory table and can be told to fail in specific ways. No real
-PMC article is ever requested, and nothing under pubmed/ is read or written.
+PMC article is ever requested, and nothing under data/corpora/pubmed/ is read or written.
 
 Run with:  python3 -m unittest discover -s pmc -v
 """
@@ -212,8 +212,9 @@ class UrlConversionTests(unittest.TestCase):
 class SafetyTests(DownloaderTestCase):
     def test_refuses_to_write_under_pubmed(self) -> None:
         with self.assertRaises(SystemExit) as caught:
-            dl.assert_safe_output_dir(dl.REPO_ROOT / "pubmed" / "x", self.inventory)
-        self.assertIn("never write under pubmed", str(caught.exception))
+            dl.assert_safe_output_dir(
+                dl.REPO_ROOT / "data" / "corpora" / "pubmed" / "x", self.inventory)
+        self.assertIn("never write under data/corpora/pubmed", str(caught.exception))
 
     def test_refuses_to_write_beside_the_inventory(self) -> None:
         with self.assertRaises(SystemExit):

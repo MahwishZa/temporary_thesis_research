@@ -115,7 +115,7 @@ class VerifyIndex(unittest.TestCase):
         code, output = self.fixture.run()
         self.assertEqual(code, 1)
         self.assertFails(output, "embeddings.f32 exists")
-        self.assertIn("run pmc/embed_chunks.py first", output.lower())
+        self.assertIn("run preprocessing/pmc/embed_chunks.py first", output.lower())
 
     def test_stub_index_is_caught(self):
         self.fixture.patch_meta(production=False, encoder="stub-sha256")

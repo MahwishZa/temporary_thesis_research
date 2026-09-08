@@ -9,10 +9,16 @@ data/
 ├── corpora/     the evidence the system retrieves from
 │   ├── pubmed/    acquisition results, search strategy, search log
 │   └── pmc/       inventories, download manifest, metadata overlays, currency pack
-├── datasets/    the questions the system is asked
-│   └── thesis_questions/   30 fixed Alzheimer development questions
-└── manifests/   counts, digests and provenance records for the above
+└── datasets/    the questions the system is asked
+    └── thesis_questions/   30 fixed Alzheimer development questions
 ```
+
+Manifests — counts, digests and provenance records — live **beside the artifact
+they describe**, not in a separate tree: `chunks/chunk_stats.json` next to
+`chunks/chunks.jsonl`, `fulltext/manifest.csv` next to `fulltext/xml/`,
+`index_meta.json` inside `indexes/production/`. A manifest separated from its
+artifact goes stale silently when the artifact is rebuilt; kept together, one
+run rewrites both.
 
 ## Adding a corpus later
 
@@ -20,7 +26,7 @@ The point of this layout is that a future study can add clinical notes, drug
 labels, institutional guidelines or another biomedical database as a **sibling
 under `data/corpora/`** without any architectural change. Give it its own
 directory, its own README recording where the data came from and under what
-licence, and a manifest under `data/manifests/`.
+licence, and a manifest written by whatever stage produces it.
 
 ## What is *not* here
 

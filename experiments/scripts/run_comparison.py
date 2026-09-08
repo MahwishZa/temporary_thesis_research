@@ -9,7 +9,7 @@ Which RAG2 arm, and what it licenses
 ``--rag2-filter rag2_perplexity --rag2-checkpoint <dir>`` is the real baseline:
 the paper's Flan-T5 filter trained on perplexity-derived labels. The checkpoint
 is not distributed by the RAG2 authors and must be produced first with
-``rag2/scripts/03_build_filter_labels.py`` then ``04_train_filter.py``.
+``architecture/rag2/scripts/03_build_filter_labels.py`` then ``04_train_filter.py``.
 
 ``--rag2-filter passthrough`` runs **"RAG2 w/o filter"** -- the paper's own
 ablation (Table 4), where balanced retrieval feeds the generator with no
@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
-for _p in (str(_ROOT), str(_ROOT / "rag2")):
+for _p in (str(_ROOT / "architecture"), str(_ROOT / "architecture" / "rag2")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -47,8 +47,8 @@ from scaf.generation import (  # noqa: E402
     GeneratorSpec, GeneratorUnavailable, build_generator,
 )
 
-DEFAULT_FROZEN = _ROOT / "scaf" / "runs" / "frozen_candidates.jsonl"
-DEFAULT_OUT = _ROOT / "scaf" / "runs"
+DEFAULT_FROZEN = _ROOT / "experiments" / "runs" / "frozen_candidates.jsonl"
+DEFAULT_OUT = _ROOT / "experiments" / "runs"
 
 
 def load_scaf_options(path: Path | None) -> Dict[str, Any]:
@@ -78,7 +78,7 @@ def main(argv=None) -> int:
     ap.add_argument("--generator-revision", default="",
                     help="pin the model revision; recorded in the manifest")
     ap.add_argument("--experiment-config", type=Path,
-                    default=_ROOT / "scaf" / "configs" / "preliminary_experiment.yaml",
+                    default=_ROOT / "experiments" / "configs" / "preliminary_experiment.yaml",
                     help="canonical YAML; supplies generation settings and the seed")
     ap.add_argument("--scientific", action="store_true",
                     help="enforce every precondition for a REPORTABLE comparison and "
@@ -104,9 +104,9 @@ def main(argv=None) -> int:
         raise SystemExit(
             "--rag2-filter rag2_perplexity needs --rag2-checkpoint.\n"
             "The RAG2 authors do not distribute their trained filter; produce one with\n"
-            "  python rag2/scripts/03_build_filter_labels.py -c <config> --candidates <cache>\n"
-            "  python rag2/scripts/04_train_filter.py -c <config> --init-tokens\n"
-            "  python rag2/scripts/04_train_filter.py -c <config> --train-file <labels> --select\n"
+            "  python architecture/rag2/scripts/03_build_filter_labels.py -c <config> --candidates <cache>\n"
+            "  python architecture/rag2/scripts/04_train_filter.py -c <config> --init-tokens\n"
+            "  python architecture/rag2/scripts/04_train_filter.py -c <config> --train-file <labels> --select\n"
             "Or run the paper's own no-filter ablation with --rag2-filter passthrough."
         )
 
@@ -114,7 +114,7 @@ def main(argv=None) -> int:
         raise SystemExit(
             f"--rag2-checkpoint {args.rag2_checkpoint!r} is not a directory.\n"
             "It must be the trained Flan-T5 filter produced by "
-            "rag2/scripts/04_train_filter.py --select (a HuggingFace model folder "
+            "architecture/rag2/scripts/04_train_filter.py --select (a HuggingFace model folder "
             "containing config.json and the weights)."
         )
 
@@ -156,7 +156,7 @@ def main(argv=None) -> int:
             f"could not load the RAG2 filter checkpoint {args.rag2_checkpoint!r}.\n"
             f"  ({type(exc).__name__}: {exc})\n"
             "  It must be a trained Flan-T5 filter directory from "
-            "rag2/scripts/04_train_filter.py --select."
+            "architecture/rag2/scripts/04_train_filter.py --select."
         ) from exc
     except ValueError as exc:
         raise SystemExit(f"the RAG2 filter refused to load: {exc}") from exc

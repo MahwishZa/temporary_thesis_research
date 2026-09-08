@@ -4,7 +4,7 @@ The backbone LLM answers the initial query conditioned on the snippets the
 filter kept (Figure 1). Greedy decoding at temperature 0 (appendix A.3).
 
 The prompt itself is a **documented assumption** -- the paper and the release
-never publish it; see rag2/prompts.py and docs/rag2_reproduction.md section 3.3.
+never publish it; see rag2/prompts.py and docs/reproduction/rag2_reproduction.md section 3.3.
 """
 
 from __future__ import annotations

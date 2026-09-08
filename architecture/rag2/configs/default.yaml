@@ -2,7 +2,7 @@
 #
 # Every value is tagged with its provenance:
 #   [S] specified by the paper or the released repository
-#   [A] not specified; a documented assumption (see docs/rag2_reproduction.md)
+#   [A] not specified; a documented assumption (see docs/reproduction/rag2_reproduction.md)
 #   [D] the paper and the released code disagree; see the doc for both readings
 #
 # Experiment configs inherit from this file with `base: default.yaml`.

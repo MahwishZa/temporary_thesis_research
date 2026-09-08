@@ -3,7 +3,7 @@
 Written next to every run's outputs. Records the resolved config, the git state,
 the model/checkpoint identities, the dataset identity and version, seeds, prompt
 hashes, package versions, hardware and timings -- the reproducibility checklist
-of docs/rag2_reproduction.md section 10.
+of docs/reproduction/rag2_reproduction.md section 10.
 """
 
 from __future__ import annotations

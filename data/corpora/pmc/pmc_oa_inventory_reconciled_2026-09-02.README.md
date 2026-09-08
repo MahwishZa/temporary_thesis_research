@@ -2,7 +2,7 @@
 
 **This is a DERIVED snapshot. It is not the validated inventory.**
 
-`pmc/pmc_oa_inventory.csv` remains the immutable, authoritative record and was
+`data/corpora/pmc/pmc_oa_inventory.csv` remains the immutable, authoritative record and was
 not modified in any way to produce this file (sha256
 `518ebf886a64b64e2e7a11cbfba7a3824c4a191709575c9fb9a445a310dfc918`, unchanged).
 
@@ -91,7 +91,7 @@ The downloader takes its expected MD5 from `xml_url`, so no code change is
 needed:
 
 ```bash
-python3 pmc/download_pmc_xml.py --inventory pmc/pmc_oa_inventory_reconciled_2026-09-02.csv
+python3 preprocessing/pmc/download_pmc_xml.py --inventory data/corpora/pmc/pmc_oa_inventory_reconciled_2026-09-02.csv
 ```
 
 Only `pmcid`, `has_xml` and `xml_url` are required by the parser; the audit
@@ -104,9 +104,9 @@ without any network request, and attempt only the 71.
 
 ## Provenance
 
-- Derived from `pmc/pmc_oa_inventory.csv` (27,508 records, 31 Aug 2026).
+- Derived from `data/corpora/pmc/pmc_oa_inventory.csv` (27,508 records, 31 Aug 2026).
 - The 71 refreshed values came from per-article metadata JSON objects at
   `s3://pmc-oa-opendata/metadata/PMC*.json`, read 2026-09-02. Metadata only —
   no XML, text, PDF or media was requested.
-- Evidence of the failures is preserved in `pmc/fulltext/failures.csv` and
-  `pmc/fulltext/manifest.csv` on the `acquire-pmc-xml` branch.
+- Evidence of the failures is preserved in `data/corpora/pmc/fulltext/failures.csv` and
+  `data/corpora/pmc/fulltext/manifest.csv` on the `acquire-pmc-xml` branch.

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Integrity gate for the MedCPT embedding index.
 
-Run this after pmc/embed_chunks.py finishes, before anything retrieves over the
-result. It answers one question: does pmc/index/ actually correspond, row for
+Run this after preprocessing/pmc/embed_chunks.py finishes, before anything retrieves over the
+result. It answers one question: does indexes/production/ actually correspond, row for
 row, to the frozen chunk layer it claims to be built from?
 
-    python3 pmc/verify_index.py
+    python3 preprocessing/pmc/verify_index.py
 
 Checks, each reported pass/fail with the evidence:
 
@@ -37,9 +37,9 @@ import math
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
-DEFAULT_INDEX = REPO / "pmc" / "index"
-DEFAULT_CHUNKS = REPO / "pmc" / "chunks" / "chunks.jsonl"
+REPO = Path(__file__).resolve().parent.parent.parent
+DEFAULT_INDEX = REPO / "indexes" / "production"
+DEFAULT_CHUNKS = REPO / "data" / "corpora" / "pmc" / "chunks" / "chunks.jsonl"
 
 MEDCPT_DIM = 768
 NORM_TOLERANCE = 1e-3
@@ -159,7 +159,7 @@ def verify(index_dir: Path, chunks_path: Path, skip_duplicates: bool = True) -> 
 
     for path in (vec_path, man_path, meta_path):
         if not report.check(path.exists(), f"{path.name} exists", str(path)):
-            print("\nFAILED: the index is incomplete. Run pmc/embed_chunks.py first.")
+            print("\nFAILED: the index is incomplete. Run preprocessing/pmc/embed_chunks.py first.")
             return 1
 
     meta = json.loads(meta_path.read_text(encoding="utf-8"))

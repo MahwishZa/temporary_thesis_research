@@ -3,7 +3,7 @@
 All tunables live in YAML under ``configs/`` and are parsed into these
 dataclasses; nothing is hard-coded at a call site. Every field records whether
 the paper specifies it ([S]) or whether it is a documented assumption ([A]) --
-see docs/rag2_reproduction.md for the full accounting.
+see docs/reproduction/rag2_reproduction.md for the full accounting.
 """
 
 from __future__ import annotations

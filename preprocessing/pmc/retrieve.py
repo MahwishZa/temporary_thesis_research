@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
-"""Balanced retrieval over the frozen index, with candidate-set replay.
+"""SUPERSEDED PROTOTYPE -- balanced retrieval over the frozen index, with replay.
+
+.. warning::
+
+   **This module is not on the experimental path and must not be used for
+   reported results.** It was the first working implementation of balanced
+   retrieval and candidate replay, written before the RAG2 reproduction existed.
+   Both of its responsibilities now live elsewhere:
+
+   =========================  =====================================
+   this module                the component that superseded it
+   =========================  =====================================
+   balanced retrieval         ``architecture/rag2/rag2/retrieval/``
+   candidate persistence      ``architecture/scaf/frozen.py``
+   =========================  =====================================
+
+   Nothing imports it except its own tests. It is kept because it is a working,
+   tested, standard-library-only reference for the two mechanisms above, and
+   deleting a validated implementation is a scientific decision rather than a
+   tidying one. Removing it is deferred to a separate, explicit commit.
+
+   Read it as documentation. Run the pipeline through
+   ``architecture/rag2/scripts/02_retrieve.py`` and
+   ``experiments/scripts/freeze_candidates.py``.
 
 Implements the retrieval stage the thesis inherits frozen from RAG²:
 
@@ -39,9 +62,9 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-REPO = Path(__file__).resolve().parent.parent
-DEFAULT_INDEX = REPO / "pmc" / "index"
-DEFAULT_CANDIDATES = REPO / "pmc" / "candidates"
+REPO = Path(__file__).resolve().parent.parent.parent
+DEFAULT_INDEX = REPO / "indexes" / "production"
+DEFAULT_CANDIDATES = REPO / "experiments" / "runs" / "candidates"
 
 
 # ---------------------------------------------------------------------------

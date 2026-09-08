@@ -45,7 +45,10 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-BASE_DIR = Path(__file__).resolve().parent
+# The acquisition CODE lives under preprocessing/; the acquisition DATA --
+# the approved search strategy and its outputs -- lives under data/corpora/.
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = REPO_ROOT / "data" / "corpora" / "pubmed"
 QUERIES_PATH = BASE_DIR / "search_queries.txt"
 
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"

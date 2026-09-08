@@ -3,8 +3,8 @@
 
 Read-only. Exits non-zero if any invariant fails, so it can gate the next stage.
 
-    python3 pmc/validate_chunks.py                 # after building chunks
-    python3 pmc/validate_chunks.py --pubmed <csv>  # if PubMed is not smudged
+    python3 preprocessing/pmc/validate_chunks.py                 # after building chunks
+    python3 preprocessing/pmc/validate_chunks.py --pubmed <csv>  # if PubMed is not smudged
 
 Checks: unique chunk ids; chunk->document mapping; no orphan chunks; no new
 duplicate identities; provenance completeness; canonical-date, date-precision
@@ -27,9 +27,9 @@ from pathlib import Path
 
 csv.field_size_limit(2**31 - 1 if sys.maxsize > 2**32 else 2**27)
 
-REPO = Path(__file__).resolve().parent.parent
-DEFAULT_CHUNKS = REPO / "pmc" / "chunks" / "chunks.jsonl"
-DEFAULT_META = REPO / "pmc" / "metadata"
+REPO = Path(__file__).resolve().parent.parent.parent
+DEFAULT_CHUNKS = REPO / "data" / "corpora" / "pmc" / "chunks" / "chunks.jsonl"
+DEFAULT_META = REPO / "data" / "corpora" / "pmc" / "metadata"
 
 
 def load_policy(path: Path):
@@ -132,7 +132,7 @@ def main(argv=None) -> int:
     tracked = subprocess.run(["git", "ls-files"], cwd=REPO, capture_output=True,
                              text=True).stdout.splitlines()
     retry_tracked = [t for t in tracked if t.endswith("retry71.csv")]
-    xml_tracked = [t for t in tracked if t.startswith("pmc/fulltext/xml/")]
+    xml_tracked = [t for t in tracked if t.startswith("data/corpora/pmc/fulltext/xml/")]
 
     checks = [
         ("chunks read",                        n > 0, n),

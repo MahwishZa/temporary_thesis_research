@@ -63,7 +63,7 @@ def build_observations(
         raise ValueError(
             f"unsupported ppl_rationale {ppl_rationale!r}: the reproduction scores the "
             "closed-book rationale in both terms so Delta-PPL isolates the document's "
-            "effect on one fixed string (docs/rag2_reproduction.md section 5.4)"
+            "effect on one fixed string (docs/reproduction/rag2_reproduction.md section 5.4)"
         )
 
     observations: List[LabelingObservation] = []

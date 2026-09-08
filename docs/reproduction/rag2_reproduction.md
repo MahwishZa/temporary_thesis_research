@@ -256,16 +256,16 @@ Appendix A.3 and Table A1 specify the corpus as **the Self-BioRAG corpus**
   supplied medical dataset governs its own chunking.
 * **[U]** Neither the corpora nor the precomputed MedCPT embeddings are
   distributed (repo README). The reproduction therefore treats the corpus as a
-  **plug-in** (`rag2/corpora/`) and does not ship one.
+  **plug-in** (`architecture/rag2/rag2/corpora/`) and does not ship one.
 * **[S]** The on-disk layout the release expects is fully specified in
   `retriever/README.md` (`PubMed_Embeds_{0..37}.npy` /
   `PubMed_Articles_{0..37}.json`, `PMC_{Main,Abs}_*`, `CPG_Total_*`,
-  `Textbook_Total_*`), and `rag2/corpora/json_corpus.py` reads exactly that
+  `Textbook_Total_*`), and `architecture/rag2/rag2/corpora/json_corpus.py` reads exactly that
   layout so an existing index drops straight in.
 
-**This repository's corpus.** The thesis corpus is built by `pmc/build_chunks.py`
-and `pmc/embed_chunks.py`, which write a different pair of artifacts
-(`chunks.jsonl` plus `embeddings.f32` + `index_manifest.jsonl`). `rag2/corpora/
+**This repository's corpus.** The thesis corpus is built by `preprocessing/pmc/build_chunks.py`
+and `preprocessing/pmc/embed_chunks.py`, which write a different pair of artifacts
+(`chunks.jsonl` plus `embeddings.f32` + `index_manifest.jsonl`). `architecture/rag2/rag2/corpora/
 thesis_chunks.py` reads that layout and presents it through the same `Corpus`
 interface, so **no baseline code changes to run over it**. Two structural notes:
 
@@ -275,7 +275,7 @@ interface, so **no baseline code changes to run over it**. Two structural notes:
 * It loads **one source category per instance** (`pubmed-abstract`,
   `pmc-fulltext`, `currency-pack`), which is what keeps balanced retrieval
   meaningful: three corpora here play the role of the paper's four. See
-  `docs/rag2_reproduction_audit.md` §4 for why three, not four, and what that
+  `docs/reproduction/rag2_reproduction_audit.md` §4 for why three, not four, and what that
   costs.
 
 ### 4.2 Retrieval procedure — **[S]**
@@ -376,7 +376,7 @@ nor confidence is dropped from training rather than labelled.
 **[U]** `classifier/data/preprocess.py`, which would have produced this data, is
 an **empty file** in both this repo and upstream. The rule above is
 reconstructed from Figure 2 and §3.2 and is implemented in
-`rag2/filter_training/labeling.py`, with the truth table asserted verbatim in
+`architecture/rag2/rag2/filter_training/labeling.py`, with the truth table asserted verbatim in
 `tests/test_labeling.py`.
 
 **[S]** Labels are produced **per (question, snippet) pair**, each snippet
@@ -540,7 +540,7 @@ filter. Config key: `filter.on_empty: no_evidence | keep_top1`.
   letter matched by an ordered list of patterns (`the answer is (X)`,
   `answer: X`, a trailing bare `(X)`, …) and falls back to the last standalone
   A–D token; unmatched generations count as incorrect. Implemented in
-  `rag2/evaluation.py:extract_choice` (default patterns in
+  `architecture/rag2/rag2/evaluation.py:extract_choice` (default patterns in
   `DEFAULT_EXTRACTION_PATTERNS`, overridable via the `evaluation.extraction_patterns`
   config key), pinned by `tests/test_evaluation.py`.
 
@@ -592,7 +592,7 @@ config.
 
 `classifier/utils.py` computes overall accuracy plus per-class accuracy and
 predicted/gold counts for `[HELPFUL]` / `[NOT_HELPFUL]`. Reproduced in
-`rag2/evaluation.py:filter_metrics`.
+`architecture/rag2/rag2/evaluation.py:filter_metrics`.
 
 ---
 
@@ -601,8 +601,8 @@ predicted/gold counts for `[HELPFUL]` / `[NOT_HELPFUL]`. Reproduced in
 | Resource | Status | Reconstructable? |
 | --- | --- | --- |
 | Trained Flan-T5-large filter checkpoint | **[U]** not distributed | **Yes**, by re-running §5 labeling + training. Not bit-identical (unseeded original, different LLM generations). |
-| Four biomedical corpora + MedCPT embeddings (564 GB) | **[U]** not distributed | **Yes in principle** (PubMed/PMC/textbooks are public; only 8 of 16 CPG sources are public per Chen et al. 2023), at substantial cost. Out of scope here: the medical dataset is being prepared separately and plugs into `rag2/corpora/`. |
-| `classifier/data/preprocess.py` (labeling code) | **[U]** empty file | **Yes**, from Figure 2 + §3.2 — implemented in `rag2/filter_training/labeling.py`. |
+| Four biomedical corpora + MedCPT embeddings (564 GB) | **[U]** not distributed | **Yes in principle** (PubMed/PMC/textbooks are public; only 8 of 16 CPG sources are public per Chen et al. 2023), at substantial cost. Out of scope here: the medical dataset is being prepared separately and plugs into `architecture/rag2/rag2/corpora/`. |
+| `classifier/data/preprocess.py` (labeling code) | **[U]** empty file | **Yes**, from Figure 2 + §3.2 — implemented in `architecture/rag2/rag2/filter_training/labeling.py`. |
 | Rationale files (`*_llama_cot.json`) | **[U]** not distributed | **Yes**, by running §3.1 with the base LLM. |
 | Answer-generation prompt | **[U]** never published | **No** — reconstructed by assumption (§3.3). |
 | Sliding-window chunk size/stride | **[U]** never published | **No** — left to the supplied dataset. |
@@ -618,10 +618,10 @@ predicted/gold counts for `[HELPFUL]` / `[NOT_HELPFUL]`. Reproduced in
 
 | File | Verdict |
 | --- | --- |
-| `retriever/query_encode.py` | **Reusable logic.** CLS pooling and 512-token truncation are correct. Defects: hard-coded `cuda:7`; batch size of 1 (`range(0, len, 1)` then `[i:i+1]`) makes encoding needlessly slow; `xq = np.vstack(queries)` is rebuilt inside the loop, i.e. O(n²) work. Reimplemented in `rag2/retrieval/encoder.py` with the same semantics. |
-| `retriever/retrieve.py` | **Reusable logic**, but five near-identical `*_index_create` / `*_decode` function pairs hard-code corpus filenames. Generalised to one corpus-agnostic path in `rag2/retrieval/index.py`; the original filename layout is preserved by `rag2/corpora/json_corpus.py`. |
-| `retriever/rerank.py` | **Reusable.** Scoring is correct. Defects: hard-coded device `2`; one tokenizer/model load per call is fine but the whole candidate list for a query is padded into a single batch, which OOMs at large `candidates_per_corpus`. Reimplemented with batching in `rag2/retrieval/rerank.py`. |
-| `retriever/main.py` | **Needs correction.** Single `top_k` for two distinct roles; PubMed shard concatenation breaks balance (§4.2 **[D]**); reranks with the rationale rather than the initial query (§4.3 **[D]**); no caching; no metadata retained (snippets are bare strings, so document id / source / date are lost). Replaced by `rag2/pipeline.py` + `scripts/02_retrieve.py`. |
+| `retriever/query_encode.py` | **Reusable logic.** CLS pooling and 512-token truncation are correct. Defects: hard-coded `cuda:7`; batch size of 1 (`range(0, len, 1)` then `[i:i+1]`) makes encoding needlessly slow; `xq = np.vstack(queries)` is rebuilt inside the loop, i.e. O(n²) work. Reimplemented in `architecture/rag2/rag2/retrieval/encoder.py` with the same semantics. |
+| `retriever/retrieve.py` | **Reusable logic**, but five near-identical `*_index_create` / `*_decode` function pairs hard-code corpus filenames. Generalised to one corpus-agnostic path in `architecture/rag2/rag2/retrieval/index.py`; the original filename layout is preserved by `architecture/rag2/rag2/corpora/json_corpus.py`. |
+| `retriever/rerank.py` | **Reusable.** Scoring is correct. Defects: hard-coded device `2`; one tokenizer/model load per call is fine but the whole candidate list for a query is padded into a single batch, which OOMs at large `candidates_per_corpus`. Reimplemented with batching in `architecture/rag2/rag2/retrieval/rerank.py`. |
+| `retriever/main.py` | **Needs correction.** Single `top_k` for two distinct roles; PubMed shard concatenation breaks balance (§4.2 **[D]**); reranks with the rationale rather than the initial query (§4.3 **[D]**); no caching; no metadata retained (snippets are bare strings, so document id / source / date are lost). Replaced by `architecture/rag2/rag2/pipeline.py` + `scripts/02_retrieve.py`. |
 | `classifier/run_classifier.py` | **Reusable for training** — kept and used as-is for §5.8, since it is the authors' own script. Its `--do_eval` path has the feature/example desync bug (§5.7 **[D]**), so the reproduction does not use it for inference. |
 | `classifier/utils.py` | **Reusable.** Preprocessing and metrics match the paper. |
 | `classifier/model/token_add.ipynb` | **Needs correction** — `AutoModelForCausalLM` on a T5 checkpoint (§2). Replaced by `scripts/04_train_filter.py --init-tokens`. |
@@ -635,13 +635,13 @@ authors' release stays citable; the reproduction is additive.
 
 ## 10. Reproducibility record
 
-Every run writes a manifest (`rag2/experiment.py:write_manifest`) capturing:
+Every run writes a manifest (`architecture/rag2/rag2/experiment.py:write_manifest`) capturing:
 resolved config, git commit + dirty flag, model ids and revision hashes, dataset
 id and version, seeds, prompt template hashes, package versions, hardware, wall
-clock, and output digests. Prompts are versioned constants in `rag2/prompts.py`
+clock, and output digests. Prompts are versioned constants in `architecture/rag2/rag2/prompts.py`
 and hashed into the manifest so a prompt edit is never silent.
 
-Cached candidates (`rag2/cache.py`) carry the retrieval config hash. Replaying a
+Cached candidates (`architecture/rag2/rag2/cache.py`) carry the retrieval config hash. Replaying a
 cache built under a different retrieval config raises unless
 `--allow-config-mismatch` is passed, which is what lets the same candidate set be
 fed to different filters with an auditable guarantee that only the filter changed.
@@ -687,7 +687,7 @@ match:
 Per the task brief, the baseline is **not** to be tuned to close a gap with the
 paper. `scripts/06_evaluate.py` prints the delta against the table above and
 writes a `*.report.json` beside the predictions; those numbers and their
-explanations are transcribed into `docs/reproduction_results.md`, not engineered
+explanations are transcribed into `docs/reproduction/reproduction_results.md`, not engineered
 away.
 
 ---

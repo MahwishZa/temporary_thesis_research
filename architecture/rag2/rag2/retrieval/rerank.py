@@ -3,7 +3,7 @@
 The pooled candidates are scored by cross-encoding the query with each snippet
 and sorted by the resulting logit; the top ``final_top_k`` survive.
 
-Two things to note, both recorded in docs/rag2_reproduction.md section 4.3:
+Two things to note, both recorded in docs/reproduction/rag2_reproduction.md section 4.3:
 
 * **Which query.** The paper says the *initial* query, twice (Figure 1 caption
   and section 3.4). The released ``retriever/main.py`` passes the rationale file.

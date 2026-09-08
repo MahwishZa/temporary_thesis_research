@@ -21,11 +21,11 @@ code ever learned about SCAF — or about publication dates, recency or currency
 the thing being measured would no longer exist.
 
 This is machine-checked, not merely intended.
-`rag2/tests/test_metadata_isolation.py` scans every module under
+`architecture/rag2/tests/test_metadata_isolation.py` scans every module under
 `architecture/rag2/rag2/` for executable references to date, recency or currency
 fields and fails the build if one appears; a companion test proves the scanner
 actually fires by feeding it real violations. A second test in
-`scaf/tests/` asserts no baseline file imports `scaf`.
+`architecture/scaf/tests/` asserts no baseline file imports `scaf`.
 
 ## Reading `architecture/rag2/` — three different things, similar names
 
@@ -43,8 +43,16 @@ the authors' `retriever/`/`classifier/` must sit beside the package rather than
 inside it so they remain unmodified. Flattening it would either break the import
 or break the byte-identical claim in `docs/reproduction/`.
 
-So: when documentation says "`rag2/datasets/`", it means the package module
-`rag2.datasets`, which on disk is `architecture/rag2/rag2/datasets/`.
+**Path convention.** Everywhere outside `architecture/rag2/`, paths in this
+repository are written **relative to the repository root** — so the package
+module `rag2.datasets` is written `architecture/rag2/rag2/datasets/`.
+
+*Inside* `architecture/rag2/`, a path to **code** stays relative to that
+container (`rag2/filtering/rag2_filter.py`, `scripts/02_retrieve.py`), because
+the container is a self-contained reproduction unit and the move changed no
+relationship within it. The one exception is references to **documentation**:
+the reproduction documents moved out to the repository-level `docs/reproduction/`
+tree, so the container names them root-relative and links them with `../../`.
 
 ## `architecture/scaf/`
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for parse_pmc_xml.py.
 
-Every fixture is synthetic JATS built in-memory. No file in pmc/fulltext/xml/
+Every fixture is synthetic JATS built in-memory. No file in data/corpora/pmc/fulltext/xml/
 is read, and nothing touches the network.
 
     python3 -m unittest pmc.test_parse_pmc_xml -v
@@ -444,7 +444,9 @@ class Provenance(unittest.TestCase):
 class OutputSafety(unittest.TestCase):
     def test_refuses_to_write_under_pubmed(self):
         with self.assertRaises(SystemExit):
-            pp.assert_safe_output(pp.REPO_ROOT / "pubmed" / "x.jsonl", pp.DEFAULT_XML_DIR)
+            pp.assert_safe_output(
+                pp.REPO_ROOT / "data" / "corpora" / "pubmed" / "x.jsonl",
+                pp.DEFAULT_XML_DIR)
 
     def test_refuses_to_write_inside_the_xml_directory(self):
         with self.assertRaises(SystemExit):
