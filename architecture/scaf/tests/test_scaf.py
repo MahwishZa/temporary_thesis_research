@@ -408,3 +408,77 @@ class TestSupportV2:
         support_detail = detail["support_detail"]
         for key in ("coverage", "idf_overlap", "idf_source", "corpus_size"):
             assert key in support_detail
+
+
+class TestSupportDeterminism:
+    """Support scores must not depend on Python's string hash seed.
+
+    ``SupportScorer.score`` summed corpus IDF over a *set* of query tokens.
+    Floating-point addition is not associative, so the total depended on set
+    iteration order, which varies per process with PYTHONHASHSEED. Measured on
+    the real corpus before the fix: 56 of 600 candidate scores differed between
+    seed 1 and seed 2, by ~2.2e-16. No admission decision flipped, but a score
+    quoted in the thesis was not reproducible from the same inputs.
+
+    These tests pin the *summation order* rather than trying to provoke a float
+    discrepancy. Only a small minority of the 8! orderings of a given token set
+    actually sum differently, so a test that shells out to a few hash seeds and
+    compares scores passes on the broken code most of the time -- it looks like a
+    regression test and is not one. Asserting the order directly always fails on
+    the defect.
+    """
+
+    DF = {"neuropathological": 5306, "hallmark": 2472, "alzheimer": 6469,
+          "disease": 792, "amyloid": 1187, "plaque": 8780,
+          "deposition": 1543, "hippocampal": 5992}
+    QUESTION = ("neuropathological hallmark alzheimer disease amyloid plaque "
+                "deposition hippocampal")
+    TEXT = "alzheimer disease shows amyloid deposition"
+
+    def _recording_scorer(self):
+        """A scorer that records the order in which IDF terms are summed."""
+        calls = []
+
+        class Recording(SupportScorer):
+            def corpus_idf(self, token):
+                calls.append(token)
+                return super().corpus_idf(token)
+
+        return Recording(document_frequency=dict(self.DF), corpus_size=10000), calls
+
+    def test_idf_is_summed_in_sorted_token_order(self):
+        """The regression. Summing over a set makes the total hash-seed dependent."""
+        scorer, calls = self._recording_scorer()
+        scorer.score(question(self.QUESTION), evidence("c1", self.TEXT))
+
+        # score() sums over the question tokens, then over the matched tokens.
+        # Both runs must be in sorted order for the totals to be reproducible.
+        question_tokens = sorted(tokenize(self.QUESTION))
+        summed_over_question = calls[:len(question_tokens)]
+        assert summed_over_question == question_tokens, (
+            "SupportScorer summed IDF in a non-deterministic order "
+            f"({summed_over_question}); it must iterate a sorted sequence, not a "
+            "set, or the score changes with PYTHONHASHSEED.")
+
+        matched = calls[len(question_tokens):]
+        assert matched == sorted(matched), (
+            f"matched-token IDF summed out of order: {matched}")
+
+    def test_score_is_invariant_to_word_order_in_the_question(self):
+        """Same tokens, different textual order -> byte-identical score."""
+        scorer = SupportScorer(document_frequency=dict(self.DF), corpus_size=10000)
+        words = self.QUESTION.split()
+        orderings = [" ".join(words[i:] + words[:i]) for i in range(len(words))]
+        scores = {scorer.score(question(text), evidence("c1", self.TEXT))[0]
+                  for text in orderings}
+        assert len(scores) == 1, f"score depends on question word order: {scores}"
+
+    def test_score_is_stable_within_a_process(self):
+        scorer = SupportScorer(document_frequency=dict(self.DF), corpus_size=10000)
+        q, e = question(self.QUESTION), evidence("c1", self.TEXT)
+        assert len({scorer.score(q, e)[0] for _ in range(50)}) == 1
+
+    def test_matched_tokens_are_reported_in_sorted_order(self):
+        scorer = SupportScorer(document_frequency=dict(self.DF), corpus_size=10000)
+        _, detail = scorer.score(question(self.QUESTION), evidence("c1", self.TEXT))
+        assert detail["matched"] == sorted(detail["matched"])

@@ -185,14 +185,22 @@ class SupportScorer:
 
     def score(self, question: Question, candidate: Evidence,
               idf: Optional[Dict[str, float]] = None) -> Tuple[float, Dict[str, Any]]:
-        q_tokens = set(tokenize(question.question))
-        if not q_tokens:
+        q_token_set = set(tokenize(question.question))
+        if not q_token_set:
             return self.floor, {"matched": [], "question_tokens": 0,
                                 "coverage": 0.0, "idf_overlap": 0.0,
                                 "idf_source": self.idf_source}
 
+        # Sorted, not the set itself. Floating-point addition is not associative,
+        # so summing IDF over a set makes the result depend on Python's string
+        # hash seed -- a different value (by ~1 ULP) in every process. Measured
+        # before this fix: 56 of 600 candidate scores differed between
+        # PYTHONHASHSEED=1 and =2. Sorting fixes the summation order, which makes
+        # a score reproducible across runs. The mathematical value is unchanged;
+        # only its rounding was ever at issue.
+        q_tokens = sorted(q_token_set)
         text_tokens = set(tokenize(candidate.text))
-        matched = sorted(q_tokens & text_tokens)
+        matched = sorted(q_token_set & text_tokens)
 
         # Coverage: cannot collapse, because it depends on this passage alone.
         coverage = len(matched) / len(q_tokens)
