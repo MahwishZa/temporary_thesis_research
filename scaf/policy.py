@@ -21,9 +21,10 @@ final thesis instrument. Three deliberate limits, each surfaced in the output
 rather than hidden:
 
 * **sigma is lexical, not entailment.** The thesis specifies an entailment model.
-  That needs a trained NLI model this stage does not have, so sigma here is
-  IDF-weighted token overlap between question and passage. Every decision record
-  carries ``support_method`` so no reader can mistake one for the other.
+  That needs a trained NLI model this stage does not have, so sigma here is a
+  prototype: question-term coverage combined with corpus-IDF-weighted overlap
+  (:class:`SupportScorer`, v2). Every decision record carries ``support_method``
+  and ``support_detail.idf_source`` so no reader can mistake one for the other.
   **This is the single largest approximation in SCAF and must be replaced before
   any thesis claim.**
 * **rho (corroboration/contested) is not implemented.** Detecting that two
@@ -122,44 +123,97 @@ def tokenize(text: str) -> List[str]:
 # isolation and each can be swapped without touching the admission policy.
 # --------------------------------------------------------------------------
 class SupportScorer:
-    """sigma -- does this passage bear on this question?
+    """sigma -- does this passage bear on the question?
 
-    **Lexical placeholder for the thesis's entailment model.** IDF-weighted
-    overlap of question tokens found in the passage, normalised to [0, 1]. IDF is
-    computed over the candidate set for the question, so a term that appears in
-    every candidate contributes nothing -- which is what stops generic medical
-    vocabulary from dominating.
+    **PROTOTYPE SUPPORT SCORER. NOT semantic entailment.** The thesis specifies
+    an entailment model; none is available in this environment, so this is a
+    lexical stand-in and every decision record says so via ``support_method``.
+    It is deliberately behind one small interface so the entailment model can
+    replace it without touching the admission policy.
+
+    Fix to the v1 collapse (see docs/preliminary_rag2_vs_scaf.md, example E)
+    -------------------------------------------------------------------------
+    v1 computed IDF **over the candidate set**. When retrieval does its job every
+    candidate is on-topic, so the question's own terms appear in all of them, IDF
+    drives their weight to nearly zero, and sigma collapses towards zero for
+    every candidate at once -- the score stopped measuring topicality and became
+    a within-set contrast. On alz-016 a passage matching *neuropathological*,
+    *hallmark* and *disease* scored 0.033.
+
+    v2 fixes it two ways:
+
+    * **IDF comes from the corpus, not the candidate set.** A term is rare
+      because it is rare in the corpus, which is what IDF is supposed to mean.
+      Pass ``document_frequency`` + ``corpus_size`` (the freeze step computes
+      them from the same chunk file the candidates came from).
+    * **Coverage is scored alongside it.** ``coverage`` is the plain fraction of
+      the question's content terms present in the passage. It cannot collapse,
+      because it does not depend on any other candidate. sigma is the mean of
+      coverage and the IDF-weighted overlap.
+
+    Without a corpus ``document_frequency`` the scorer still runs, but falls back
+    to coverage alone and reports ``idf_source: "none"`` -- never silently back to
+    the v1 behaviour.
     """
 
-    method = "lexical-idf-overlap-v1"
+    method = "lexical-coverage-corpus-idf-v2"
 
-    def __init__(self, floor: float = 0.0) -> None:
+    def __init__(self, floor: float = 0.0,
+                 document_frequency: Optional[Dict[str, int]] = None,
+                 corpus_size: int = 0) -> None:
         self.floor = floor
+        self.document_frequency = dict(document_frequency or {})
+        self.corpus_size = int(corpus_size or 0)
+
+    @property
+    def idf_source(self) -> str:
+        return "corpus" if (self.document_frequency and self.corpus_size) else "none"
+
+    def corpus_idf(self, token: str) -> float:
+        """Smoothed IDF over the corpus. 1.0 when no corpus statistics exist."""
+        if not self.document_frequency or not self.corpus_size:
+            return 1.0
+        df = self.document_frequency.get(token, 0)
+        return math.log((self.corpus_size + 1.0) / (df + 1.0)) + 1.0
 
     def idf(self, candidates: Sequence[Evidence]) -> Dict[str, float]:
-        n = len(candidates) or 1
-        seen: Dict[str, int] = {}
-        for candidate in candidates:
-            for token in set(tokenize(candidate.text)):
-                seen[token] = seen.get(token, 0) + 1
-        return {t: math.log((n + 1) / (c + 0.5)) for t, c in seen.items()}
+        """Kept for interface compatibility; the corpus table is what is used.
+
+        Returns an empty map: per-question IDF is exactly the thing v2 removed.
+        """
+        return {}
 
     def score(self, question: Question, candidate: Evidence,
-              idf: Dict[str, float]) -> Tuple[float, Dict[str, Any]]:
+              idf: Optional[Dict[str, float]] = None) -> Tuple[float, Dict[str, Any]]:
         q_tokens = set(tokenize(question.question))
         if not q_tokens:
-            return self.floor, {"matched": [], "question_tokens": 0}
+            return self.floor, {"matched": [], "question_tokens": 0,
+                                "coverage": 0.0, "idf_overlap": 0.0,
+                                "idf_source": self.idf_source}
+
         text_tokens = set(tokenize(candidate.text))
         matched = sorted(q_tokens & text_tokens)
-        # Weight by IDF so a match on a distinctive term counts for more than one
-        # on a term every candidate shares.
-        total = sum(idf.get(t, 1.0) for t in q_tokens)
-        hit = sum(idf.get(t, 1.0) for t in matched)
-        value = (hit / total) if total > 0 else self.floor
+
+        # Coverage: cannot collapse, because it depends on this passage alone.
+        coverage = len(matched) / len(q_tokens)
+
+        if self.idf_source == "corpus":
+            total = sum(self.corpus_idf(t) for t in q_tokens)
+            hit = sum(self.corpus_idf(t) for t in matched)
+            idf_overlap = (hit / total) if total > 0 else 0.0
+            value = 0.5 * coverage + 0.5 * idf_overlap
+        else:
+            idf_overlap = 0.0
+            value = coverage
+
         return max(self.floor, min(1.0, value)), {
             "matched": matched[:12],
             "num_matched": len(matched),
             "question_tokens": len(q_tokens),
+            "coverage": round(coverage, 6),
+            "idf_overlap": round(idf_overlap, 6),
+            "idf_source": self.idf_source,
+            "corpus_size": self.corpus_size,
         }
 
 
@@ -360,7 +414,11 @@ class SCAFFilter(EvidenceFilter):
         self.max_admit = int(options.get("max_admit", 0))         # 0 = no cap
         self.abstain_enabled = bool(options.get("abstain", True))
 
-        self.support = SupportScorer(float(options.get("support_floor", 0.0)))
+        self.support = SupportScorer(
+            floor=float(options.get("support_floor", 0.0)),
+            document_frequency=options.get("document_frequency"),
+            corpus_size=int(options.get("corpus_size", 0) or 0),
+        )
         self.currency = CurrencyScorer(
             half_life_years=float(options.get("half_life_years", DEFAULT_HALF_LIFE_YEARS)),
             superseded_discount=float(
@@ -454,6 +512,8 @@ class SCAFFilter(EvidenceFilter):
             "abstain": self.abstain_enabled,
             "support_method": self.support.method,
             "support_is_entailment": False,
+            "support_idf_source": self.support.idf_source,
+            "support_corpus_size": self.support.corpus_size,
             "corroboration_status": "not_implemented",
             "half_life_years": self.currency.half_life_years,
             "superseded_discount": self.currency.superseded_discount,

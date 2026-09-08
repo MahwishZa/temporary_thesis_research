@@ -323,3 +323,86 @@ class TestRegistry:
                         if stripped.startswith(("import scaf", "from scaf")):
                             offenders.append(f"{path}:{lineno}")
         assert not offenders, "baseline imports the thesis extension:\n" + "\n".join(offenders)
+
+
+class TestSupportV2:
+    """The v1 collapse and its fix.
+
+    v1 took IDF over the candidate set, so when retrieval worked and every
+    candidate was on-topic, sigma collapsed for all of them at once. These tests
+    pin the behaviour that must not come back.
+    """
+
+    def _corpus_scorer(self, **kw):
+        # 'alzheimer' is common in this corpus, 'neuropathological' is rare.
+        df = {"alzheimer": 9000, "disease": 9500, "neuropathological": 40,
+              "hallmark": 60, "amyloid": 4000, "renal": 30, "dialysis": 12}
+        return SupportScorer(document_frequency=df, corpus_size=10000, **kw)
+
+    def test_support_does_not_collapse_when_every_candidate_is_on_topic(self):
+        """The alz-016 failure: 3 of 3 content terms matched, v1 scored 0.033."""
+        scorer = self._corpus_scorer()
+        q = question("What is the neuropathological hallmark of Alzheimer disease?")
+        # Every candidate contains the question's terms -- the v1 killer.
+        candidates = [evidence(f"c{i}", "the neuropathological hallmark of alzheimer "
+                                        "disease is amyloid plaque deposition")
+                      for i in range(20)]
+        value, detail = scorer.score(q, candidates[0], scorer.idf(candidates))
+        assert value > 0.5, f"support collapsed again: {value} ({detail})"
+        assert detail["coverage"] == pytest.approx(1.0)
+
+    def test_coverage_is_independent_of_the_other_candidates(self):
+        scorer = self._corpus_scorer()
+        q = question("neuropathological hallmark alzheimer")
+        ev = evidence("c1", "the neuropathological hallmark of alzheimer disease")
+        alone, _ = scorer.score(q, ev, scorer.idf([ev]))
+        crowded, _ = scorer.score(q, ev, scorer.idf([ev] * 50))
+        assert alone == crowded, "sigma must not depend on the candidate set"
+
+    def test_idf_comes_from_the_corpus_not_the_candidate_set(self):
+        scorer = self._corpus_scorer()
+        assert scorer.idf_source == "corpus"
+        assert scorer.idf([evidence()]) == {}, "per-question IDF must be gone"
+        # A rare corpus term must outweigh a common one.
+        assert scorer.corpus_idf("neuropathological") > scorer.corpus_idf("disease")
+
+    def test_rare_term_match_scores_above_common_term_match(self):
+        scorer = self._corpus_scorer()
+        q = question("neuropathological alzheimer")
+        rare = evidence("c1", "neuropathological findings reported")
+        common = evidence("c2", "alzheimer findings reported")
+        assert scorer.score(q, rare, {})[0] > scorer.score(q, common, {})[0]
+
+    def test_off_topic_still_scores_low(self):
+        scorer = self._corpus_scorer()
+        q = question("neuropathological hallmark alzheimer disease")
+        off = evidence("c1", "renal dialysis scheduling for chronic kidney failure")
+        assert scorer.score(q, off, {})[0] < 0.2
+
+    def test_without_corpus_statistics_it_falls_back_to_coverage_and_says_so(self):
+        """It must never silently revert to the v1 within-set behaviour."""
+        scorer = SupportScorer()
+        assert scorer.idf_source == "none"
+        q = question("neuropathological hallmark alzheimer")
+        value, detail = scorer.score(q, evidence("c1", "neuropathological hallmark alzheimer"), {})
+        assert detail["idf_source"] == "none"
+        assert value == pytest.approx(detail["coverage"])
+
+    def test_method_string_records_the_version(self):
+        assert SupportScorer.method == "lexical-coverage-corpus-idf-v2"
+        described = scaf_filter(document_frequency={"a": 1}, corpus_size=10).describe()
+        assert described["support_idf_source"] == "corpus"
+        assert described["support_corpus_size"] == 10
+        assert described["support_is_entailment"] is False
+
+    def test_corpus_statistics_reach_the_scorer_through_config(self):
+        f = scaf_filter(document_frequency={"amyloid": 5}, corpus_size=100)
+        assert f.support.corpus_size == 100
+        assert f.support.document_frequency["amyloid"] == 5
+
+    def test_detail_exposes_both_components(self):
+        f = scaf_filter(document_frequency={"amyloid": 5}, corpus_size=100)
+        detail = f.decide(question("amyloid"), [evidence("c1", "amyloid")])[0].detail
+        support_detail = detail["support_detail"]
+        for key in ("coverage", "idf_overlap", "idf_source", "corpus_size"):
+            assert key in support_detail

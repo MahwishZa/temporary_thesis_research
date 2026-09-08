@@ -38,7 +38,9 @@ for _p in (str(_ROOT), str(_ROOT / "rag2")):
 import scaf  # noqa: E402,F401  (registers the scaf filter)
 from rag2.config import FilterConfig  # noqa: E402
 from rag2.filtering.base import build_filter  # noqa: E402
-from scaf.compare import build_manifest, run_arm  # noqa: E402
+from scaf.compare import (  # noqa: E402
+    build_manifest, components_actually_computed, run_arm, scientific_report,
+)
 from scaf.frozen import load, read_meta  # noqa: E402
 
 DEFAULT_FROZEN = _ROOT / "scaf" / "runs" / "frozen_candidates.jsonl"
@@ -65,7 +67,18 @@ def main(argv=None) -> int:
     ap.add_argument("--scaf-config", type=Path, help="JSON of SCAF options")
     ap.add_argument("--generator", default="none",
                     help="'none' (admission only) or an llm backend name")
+    ap.add_argument("--scientific", action="store_true",
+                    help="enforce every precondition for a REPORTABLE comparison and "
+                         "abort if any fails: trained RAG2 checkpoint (never passthrough), "
+                         "production MedCPT retrieval, active SCAF components, a generator")
     args = ap.parse_args(argv)
+
+    if args.scientific and args.rag2_filter != "rag2_perplexity":
+        raise SystemExit(
+            "--scientific requires --rag2-filter rag2_perplexity.\n"
+            "passthrough is the paper's 'RAG2 w/o filter' ablation, not the RAG2 filter, "
+            "and must never back a reported RAG2-vs-SCAF result."
+        )
 
     if args.rag2_filter == "rag2_perplexity" and not args.rag2_checkpoint:
         raise SystemExit(
@@ -88,7 +101,14 @@ def main(argv=None) -> int:
     rag2_config = FilterConfig(kind=args.rag2_filter, checkpoint=args.rag2_checkpoint)
     rag2_filter = build_filter(rag2_config)
     scaf_options = load_scaf_options(args.scaf_config)
+    # Corpus statistics travel with the frozen set, so SCAF's support scorer uses
+    # IDF from the same corpus the candidates came from (policy.SupportScorer v2).
+    scaf_options.setdefault("document_frequency", provenance.get("document_frequency", {}))
+    scaf_options.setdefault("corpus_size", provenance.get("corpus_size", 0))
     scaf_filter = build_filter(FilterConfig(kind="scaf", options=scaf_options))
+    if scaf_filter.describe()["support_idf_source"] != "corpus":
+        print("  WARNING: SCAF support has no corpus statistics; falling back to "
+              "coverage only (re-run the freeze step to emit them)")
 
     generator = None                     # answer generation needs model weights
     if args.generator != "none":
@@ -120,6 +140,13 @@ def main(argv=None) -> int:
     }
 
     manifest = build_manifest(frozen_sets, arm_a, arm_b, config)
+    manifest["scientific"] = scientific_report(config, frozen_sets, rag2_filter, scaf_filter)
+    manifest["scaf_components"] = components_actually_computed(arm_b)
+    manifest["reportable"] = bool(
+        manifest["fairness"]["all_passed"] and manifest["scientific"]["all_passed"])
+    if not manifest["reportable"]:
+        manifest["label"] = ("DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT "
+                             "(see 'scientific' for the unmet preconditions)")
     args.out.mkdir(parents=True, exist_ok=True)
 
     with (args.out / "per_question.jsonl").open("w", encoding="utf-8", newline="\n") as fh:
@@ -145,6 +172,25 @@ def main(argv=None) -> int:
     if not fairness["all_passed"]:
         print("\nFAILED: the comparison is not valid. Do not report these numbers.")
         return 1
+
+    science = manifest["scientific"]
+    print(f"\nScientific preconditions: {science['passed']}/{science['total']} passed")
+    for check in science["checks"]:
+        print(f"  [{'PASS' if check['pass'] else 'FAIL'}] {check['check']}"
+              + (f"  -- {check['detail']}" if not check['pass'] and check['detail'] else ""))
+    if not science["all_passed"]:
+        message = ("\nMILESTONE INCOMPLETE: this is a development run, not the "
+                   "scientific RAG2-vs-SCAF result.\nUnmet: "
+                   + ", ".join(science["failed"]))
+        if args.scientific:
+            print(message + "\nAborting because --scientific was requested.")
+            return 1
+        print(message)
+
+    components = manifest["scaf_components"]
+    inert = [k for k, v in components.items() if not v["varies"]]
+    if inert:
+        print(f"\n  WARNING: SCAF component(s) constant across all candidates: {inert}")
 
     for label, key in (("ARM A (rag2)", "arm_a_rag2"), ("ARM B (scaf)", "arm_b_scaf")):
         summary = manifest[key]
