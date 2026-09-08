@@ -75,3 +75,8 @@ rag2/data/
 huggingface/
 models--*/
 *.safetensors
+
+# SCAF experiment outputs: frozen candidate sets, per-question traces, manifests.
+# Regenerable from the two scripts in scaf/scripts/; the question set and the
+# configuration ARE committed, the run products are not.
+scaf/runs/
