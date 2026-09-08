@@ -18,6 +18,7 @@ digests recorded per arm would diverge and :func:`fairness_report` would fail.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -45,6 +46,10 @@ class ArmResult:
     abstained: bool = False
     error: str = ""
     candidate_digest: str = ""
+    prompt: str = ""
+    prompt_chars: int = 0
+    generated: bool = False
+    generation_error: str = ""
 
     @property
     def num_candidates(self) -> int:
@@ -66,6 +71,10 @@ class ArmResult:
             "answer": self.answer,
             "abstained": self.abstained,
             "error": self.error,
+            "prompt": self.prompt,
+            "prompt_chars": self.prompt_chars,
+            "generated": self.generated,
+            "generation_error": self.generation_error,
             "candidate_digest": self.candidate_digest,
             "decisions": self.decisions,
         }
@@ -85,6 +94,18 @@ def run_arm(arm: str, evidence_filter: Any, frozen_sets: Sequence[FrozenCandidat
     context, which is the part the preliminary milestone needs. A failing
     question is *recorded* with its error, never dropped -- a silently shrinking
     denominator is how a comparison stops meaning anything.
+
+    When present, ``generator`` is called as ``generator(question, evidences)``
+    with the admitted :class:`~rag2.schema.Evidence` objects -- **not** a
+    pre-rendered context string. The evidence block is then rendered by the
+    baseline's own ``PromptSet.render_answer_prompt``, so both arms are prompted
+    identically and differ only in which snippets reach the prompt. The same
+    generator object is passed to both arms (see :mod:`scaf.generation`), so
+    neither can drift to a different model or decoding setting.
+
+    A generation failure is recorded on the arm result like any other error; the
+    admission decisions for that question are kept, since they are valid
+    regardless of whether the model answered.
     """
     results: List[ArmResult] = []
     for frozen in frozen_sets:
@@ -121,7 +142,19 @@ def run_arm(arm: str, evidence_filter: Any, frozen_sets: Sequence[FrozenCandidat
                 if not result.admitted_chunk_ids else False
 
             if generator is not None:
-                result.answer = generator(question, result.context)
+                admitted = set(result.admitted_chunk_ids)
+                kept_evidence = [e for c, e in zip(frozen.candidates, evidence)
+                                 if c.chunk_id in admitted]
+                if hasattr(generator, "render_prompt"):
+                    result.prompt = generator.render_prompt(question, kept_evidence)
+                    result.prompt_chars = len(result.prompt)
+                try:
+                    result.answer = generator(question, kept_evidence)
+                    result.generated = True
+                except Exception as exc:
+                    # The admission decisions above are still valid; only the
+                    # answer is missing, and it must be visible that it is.
+                    result.generation_error = f"{type(exc).__name__}: {exc}"
         except Exception as exc:                       # recorded, never swallowed
             result.error = f"{type(exc).__name__}: {exc}"
         results.append(result)
@@ -228,7 +261,12 @@ def summarise(results: Sequence[ArmResult]) -> Dict[str, Any]:
         "abstentions": sum(1 for r in ok if r.abstained),
         "mean_context_chars": round(
             sum(r.context_chars for r in ok) / len(ok), 1) if ok else 0.0,
-        "answers_generated": sum(1 for r in ok if r.answer),
+        "answers_generated": sum(1 for r in ok if r.generated),
+        "generation_failures": sum(1 for r in results if r.generation_error),
+        "generation_errors": [{"qid": r.qid, "error": r.generation_error}
+                              for r in results if r.generation_error][:20],
+        "mean_prompt_chars": round(
+            sum(r.prompt_chars for r in ok) / len(ok), 1) if ok else 0.0,
     }
 
 
@@ -349,11 +387,14 @@ def scientific_preconditions(config: Mapping[str, Any],
           "passthrough is the paper's 'w/o filter' ablation, not the RAG2 filter")
     checkpoint = (config.get("arm_a_filter_config") or {}).get("checkpoint")
     check("Arm A has a trained checkpoint", bool(checkpoint), f"checkpoint={checkpoint!r}")
-    if checkpoint:
-        check("Arm A checkpoint exists on disk", os.path.isdir(str(checkpoint)),
-              str(checkpoint))
-    else:
-        check("Arm A checkpoint exists on disk", False, "no checkpoint configured")
+    identity = checkpoint_identity(checkpoint)
+    check("Arm A checkpoint exists on disk", identity["exists"],
+          identity.get("reason", str(identity.get("resolved"))))
+    check("Arm A checkpoint looks trained (config + weights)",
+          bool(identity.get("looks_trained")),
+          f"config.json={identity.get('has_config_json')} "
+          f"weights={identity.get('weight_files')}" if identity["exists"]
+          else "no checkpoint to inspect")
     # A loaded Flan-T5 filter exposes the two label token ids; a stand-in does not.
     check("Arm A filter loaded its label tokens",
           all(getattr(arm_a_filter, attr, None) is not None
@@ -393,6 +434,49 @@ def scientific_preconditions(config: Mapping[str, Any],
 
     check("at least 20 questions", len(frozen_sets) >= 20, f"n={len(frozen_sets)}")
     return checks
+
+
+def checkpoint_identity(path: Optional[str]) -> Dict[str, Any]:
+    """What identifies a trained filter checkpoint, for the manifest.
+
+    A HuggingFace checkpoint is a directory of large weight shards, so hashing
+    the weights is slow and of little value. What identifies a run is recorded
+    instead: the resolved absolute path, the files present, their sizes, the
+    newest mtime, and a digest over that file listing -- enough to notice that a
+    different or re-trained checkpoint was used, without reading gigabytes.
+    """
+    if not path:
+        return {"configured": None, "resolved": None, "exists": False,
+                "reason": "no checkpoint configured"}
+    resolved = os.path.abspath(str(path))
+    if not os.path.isdir(resolved):
+        return {"configured": str(path), "resolved": resolved, "exists": False,
+                "reason": "not a directory"}
+    entries = []
+    for name in sorted(os.listdir(resolved)):
+        full = os.path.join(resolved, name)
+        if os.path.isfile(full):
+            stat = os.stat(full)
+            entries.append({"file": name, "bytes": stat.st_size,
+                            "mtime": int(stat.st_mtime)})
+    digest = hashlib.sha256(
+        json.dumps(entries, sort_keys=True).encode("utf-8")).hexdigest()
+    weight_files = [e["file"] for e in entries
+                    if e["file"].endswith((".safetensors", ".bin", ".pt"))]
+    return {
+        "configured": str(path),
+        "resolved": resolved,
+        "exists": True,
+        "files": entries,
+        "file_listing_digest": digest,
+        "has_config_json": any(e["file"] == "config.json" for e in entries),
+        "weight_files": weight_files,
+        "looks_trained": bool(weight_files) and any(
+            e["file"] == "config.json" for e in entries),
+        "newest_mtime": max((e["mtime"] for e in entries), default=None),
+        "note": ("Weight bytes are not hashed: a HF checkpoint is multi-GB. The "
+                 "file listing digest identifies the checkpoint for provenance."),
+    }
 
 
 def scientific_report(config: Mapping[str, Any], frozen_sets: Sequence[FrozenCandidateSet],

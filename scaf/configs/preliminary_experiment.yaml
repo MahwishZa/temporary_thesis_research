@@ -40,7 +40,10 @@ corpus:
   index_dir: pmc/index
   index_encoder: ncbi/MedCPT-Article-Encoder
   index_dim: 768
+  # ENVIRONMENT-SPECIFIC: these are properties of the machine holding the index.
+  # Left blank deliberately -- a fabricated digest is worse than a missing one.
   index_digest: ""          # fill from pmc/index/index_meta.json content_digest
+  index_verified_by: "python pmc/verify_index.py"   # must report 16/16
 
 # --- upstream: retrieval and reranking (frozen once, shared by both arms) ---
 retrieval:
@@ -53,12 +56,20 @@ retrieval:
   rerank_query: initial             # paper's reading; 'rationale' is the code path
   shard_merge: score
   frozen_file: scaf/runs/frozen_candidates.jsonl
+  # ENVIRONMENT-SPECIFIC: emitted by scaf/scripts/freeze_candidates.py.
   frozen_set_digest: ""             # filled by the freeze step; cite it with results
+  # SCAF's support scorer needs corpus IDF; the freeze step computes it from the
+  # same chunk file the candidates came from and stores it in the sidecar.
+  corpus_statistics_from_freeze: true
 
 # --- ARM A: the original RAG2 admission policy -----------------------------
 arm_a:
   filter: rag2_perplexity           # MUST NOT be passthrough for a reported run
   base_model: google/flan-t5-large  # paper 4.2, 770M
+  # ENVIRONMENT-SPECIFIC: produced by rag2/scripts/04_train_filter.py --select.
+  # The run manifest records its resolved path, file listing, sizes, mtimes and a
+  # digest over that listing (arm_a_checkpoint_identity). Weight bytes are not
+  # hashed: a HF checkpoint is multi-GB and the listing identifies it adequately.
   checkpoint: ""                    # REQUIRED. Not distributed by the RAG2 authors.
   max_seq_length: 512
   doc_stride: 128
@@ -106,14 +117,23 @@ arm_b:
     pubmed-abstract: 0.40
 
 # --- generation: identical for both arms -----------------------------------
+# Both arms are driven by ONE generator object built from this block
+# (scaf/generation.py), so "same generator, same decoding" is structural rather
+# than a claim. Answers come from rag2's own answer prompt over the admitted
+# evidence -- no second prompt path exists.
 generation:
-  backend: huggingface
-  model: meta-llama/Meta-Llama-3-8B-Instruct   # paper 4.2 footnote 2
-  revision: ""                      # pin per run; recorded in the manifest
-  temperature: 0.0                  # paper A.3: greedy
+  backend: huggingface              # huggingface | vllm | openai. NOT 'stub'.
+  model: meta-llama/Meta-Llama-3-8B-Instruct   # paper 4.2 footnote 2. GATED.
+  revision: ""                      # ENVIRONMENT-SPECIFIC: pin per run; the
+                                    # resolved commit is recorded in the manifest
+  dtype: bfloat16
+  device: auto
+  temperature: 0.0                  # paper A.3: greedy. >0 is rejected.
   top_p: 1.0
   max_new_tokens: 512
   max_input_tokens: 0               # 0 = model default
+  batch_size: 8
+  chat_template: true               # instruct models need their own template
   prompt_version: rag2-original-v1
   seed: 42
 

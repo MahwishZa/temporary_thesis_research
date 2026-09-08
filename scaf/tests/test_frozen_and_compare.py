@@ -315,10 +315,19 @@ class TestScientificPreconditions:
         return LoadedRAG2(), SCAFFilter(FilterConfig(
             kind="scaf", options={"document_frequency": {"amyloid": 5}, "corpus_size": 100}))
 
-    def _config(self, **overrides):
+    @staticmethod
+    def _trained_checkpoint(tmp_path):
+        """A directory shaped like a trained HF checkpoint: config + weights."""
+        directory = tmp_path / "filter-checkpoint"
+        directory.mkdir(exist_ok=True)
+        (directory / "config.json").write_text('{"model_type": "t5"}', encoding="utf-8")
+        (directory / "model.safetensors").write_bytes(b"\x00" * 64)
+        return str(directory)
+
+    def _config(self, checkpoint=None, **overrides):
         base = {
             "arm_a_filter": "rag2_perplexity",
-            "arm_a_filter_config": {"checkpoint": os.path.dirname(os.path.abspath(__file__))},
+            "arm_a_filter_config": {"checkpoint": checkpoint},
             "retrieval_is_medcpt": True,
             "retrieval_source": "rag2 candidate cache",
             "arm_a_generator": "huggingface",
@@ -326,27 +335,29 @@ class TestScientificPreconditions:
         base.update(overrides)
         return base
 
-    def _run(self, frozen=None, **overrides):
+    def _run(self, tmp_path, frozen=None, **overrides):
         from scaf.compare import scientific_report
         a, b = self._filters()
+        overrides.setdefault("arm_a_filter_config",
+                             {"checkpoint": self._trained_checkpoint(tmp_path)})
         return scientific_report(self._config(**overrides),
                                  frozen or [make_set(f"q{i}") for i in range(20)], a, b)
 
-    def test_a_correct_scientific_run_passes_every_precondition(self):
-        report = self._run()
+    def test_a_correct_scientific_run_passes_every_precondition(self, tmp_path):
+        report = self._run(tmp_path)
         assert report["all_passed"], report["failed"]
 
-    def test_passthrough_arm_a_fails(self):
-        report = self._run(arm_a_filter="passthrough")
+    def test_passthrough_arm_a_fails(self, tmp_path):
+        report = self._run(tmp_path, arm_a_filter="passthrough")
         assert "Arm A is NOT passthrough" in report["failed"]
         assert "Arm A is the RAG2 perplexity filter" in report["failed"]
 
-    def test_missing_checkpoint_fails(self):
-        report = self._run(arm_a_filter_config={"checkpoint": None})
+    def test_missing_checkpoint_fails(self, tmp_path):
+        report = self._run(tmp_path, arm_a_filter_config={"checkpoint": None})
         assert "Arm A has a trained checkpoint" in report["failed"]
 
-    def test_nonexistent_checkpoint_path_fails(self):
-        report = self._run(arm_a_filter_config={"checkpoint": "/no/such/checkpoint"})
+    def test_nonexistent_checkpoint_path_fails(self, tmp_path):
+        report = self._run(tmp_path, arm_a_filter_config={"checkpoint": "/no/such/checkpoint"})
         assert "Arm A checkpoint exists on disk" in report["failed"]
 
     def test_a_filter_without_label_tokens_fails(self):
@@ -357,24 +368,24 @@ class TestScientificPreconditions:
                                    AlwaysFilter(True), scaf_filter)
         assert "Arm A filter loaded its label tokens" in report["failed"]
 
-    def test_non_medcpt_retrieval_fails(self):
-        report = self._run(retrieval_is_medcpt=False)
+    def test_non_medcpt_retrieval_fails(self, tmp_path):
+        report = self._run(tmp_path, retrieval_is_medcpt=False)
         assert "production MedCPT retrieval was used" in report["failed"]
 
     @pytest.mark.parametrize("source", [
         "lexical-dev (IDF term overlap)", "BM25 baseline", "tfidf ranking",
         "mock retrieval", "stub retriever",
     ])
-    def test_development_retrieval_stand_ins_are_rejected(self, source):
-        report = self._run(retrieval_source=source)
+    def test_development_retrieval_stand_ins_are_rejected(self, tmp_path, source):
+        report = self._run(tmp_path, retrieval_source=source)
         assert "no development retrieval stand-in" in report["failed"], source
 
-    def test_missing_generator_fails(self):
-        assert "a generator is configured" in self._run(arm_a_generator="none")["failed"]
-        assert "a generator is configured" in self._run(arm_a_generator="")["failed"]
+    def test_missing_generator_fails(self, tmp_path):
+        assert "a generator is configured" in self._run(tmp_path, arm_a_generator="none")["failed"]
+        assert "a generator is configured" in self._run(tmp_path, arm_a_generator="")["failed"]
 
-    def test_too_few_questions_fails(self):
-        report = self._run(frozen=[make_set(f"q{i}") for i in range(5)])
+    def test_too_few_questions_fails(self, tmp_path):
+        report = self._run(tmp_path, frozen=[make_set(f"q{i}") for i in range(5)])
         assert "at least 20 questions" in report["failed"]
 
     def test_inactive_scaf_currency_fails(self):

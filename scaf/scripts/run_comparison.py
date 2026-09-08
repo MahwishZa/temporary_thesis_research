@@ -39,9 +39,13 @@ import scaf  # noqa: E402,F401  (registers the scaf filter)
 from rag2.config import FilterConfig  # noqa: E402
 from rag2.filtering.base import build_filter  # noqa: E402
 from scaf.compare import (  # noqa: E402
-    build_manifest, components_actually_computed, run_arm, scientific_report,
+    build_manifest, checkpoint_identity, components_actually_computed, run_arm,
+    scientific_report,
 )
 from scaf.frozen import load, read_meta  # noqa: E402
+from scaf.generation import (  # noqa: E402
+    GeneratorSpec, GeneratorUnavailable, build_generator,
+)
 
 DEFAULT_FROZEN = _ROOT / "scaf" / "runs" / "frozen_candidates.jsonl"
 DEFAULT_OUT = _ROOT / "scaf" / "runs"
@@ -66,7 +70,16 @@ def main(argv=None) -> int:
                     help="trained Flan-T5 filter, required for --rag2-filter rag2_perplexity")
     ap.add_argument("--scaf-config", type=Path, help="JSON of SCAF options")
     ap.add_argument("--generator", default="none",
-                    help="'none' (admission only) or an llm backend name")
+                    help="'none' (admission only, no answers) or a backend: "
+                         "huggingface | vllm | openai. Uses rag2's own LLM stack "
+                         "and answer prompt; one generator object drives both arms")
+    ap.add_argument("--generator-model", default="",
+                    help="checkpoint override; defaults to the experiment config")
+    ap.add_argument("--generator-revision", default="",
+                    help="pin the model revision; recorded in the manifest")
+    ap.add_argument("--experiment-config", type=Path,
+                    default=_ROOT / "scaf" / "configs" / "preliminary_experiment.yaml",
+                    help="canonical YAML; supplies generation settings and the seed")
     ap.add_argument("--scientific", action="store_true",
                     help="enforce every precondition for a REPORTABLE comparison and "
                          "abort if any fails: trained RAG2 checkpoint (never passthrough), "
@@ -80,6 +93,13 @@ def main(argv=None) -> int:
             "and must never back a reported RAG2-vs-SCAF result."
         )
 
+    if args.scientific and args.generator == "none":
+        raise SystemExit(
+            "--scientific requires a real generator: pass --generator huggingface.\n"
+            "A reported RAG2-vs-SCAF result must contain generated answers; "
+            "--generator none produces admission decisions only."
+        )
+
     if args.rag2_filter == "rag2_perplexity" and not args.rag2_checkpoint:
         raise SystemExit(
             "--rag2-filter rag2_perplexity needs --rag2-checkpoint.\n"
@@ -90,6 +110,26 @@ def main(argv=None) -> int:
             "Or run the paper's own no-filter ablation with --rag2-filter passthrough."
         )
 
+    if args.rag2_checkpoint and not Path(args.rag2_checkpoint).is_dir():
+        raise SystemExit(
+            f"--rag2-checkpoint {args.rag2_checkpoint!r} is not a directory.\n"
+            "It must be the trained Flan-T5 filter produced by "
+            "rag2/scripts/04_train_filter.py --select (a HuggingFace model folder "
+            "containing config.json and the weights)."
+        )
+
+    experiment_config: Dict[str, Any] = {}
+    if args.experiment_config and args.experiment_config.exists():
+        try:
+            import yaml
+            experiment_config = yaml.safe_load(
+                args.experiment_config.read_text(encoding="utf-8")) or {}
+        except ImportError:
+            print("  WARNING: PyYAML absent; generation settings fall back to defaults")
+    elif args.generator != "none":
+        print(f"  WARNING: {args.experiment_config} not found; "
+              "generation settings fall back to defaults")
+
     frozen_sets = load(str(args.frozen))
     frozen_meta = read_meta(str(args.frozen)) or {}
     provenance = frozen_meta.get("provenance", {})
@@ -99,7 +139,27 @@ def main(argv=None) -> int:
           f"(MedCPT={provenance.get('retrieval_is_medcpt')})")
 
     rag2_config = FilterConfig(kind=args.rag2_filter, checkpoint=args.rag2_checkpoint)
-    rag2_filter = build_filter(rag2_config)
+    try:
+        rag2_filter = build_filter(rag2_config)
+    except ImportError as exc:
+        raise SystemExit(
+            f"the RAG2 perplexity filter needs torch and transformers "
+            f"({type(exc).__name__}: {exc}).\n"
+            "  On the GPU machine:\n"
+            "    pip install torch==2.4.1+cu121 --index-url "
+            "https://download.pytorch.org/whl/cu121\n"
+            "    pip install transformers accelerate sentencepiece\n"
+            "  The comparison will not substitute a different filter."
+        ) from exc
+    except OSError as exc:
+        raise SystemExit(
+            f"could not load the RAG2 filter checkpoint {args.rag2_checkpoint!r}.\n"
+            f"  ({type(exc).__name__}: {exc})\n"
+            "  It must be a trained Flan-T5 filter directory from "
+            "rag2/scripts/04_train_filter.py --select."
+        ) from exc
+    except ValueError as exc:
+        raise SystemExit(f"the RAG2 filter refused to load: {exc}") from exc
     scaf_options = load_scaf_options(args.scaf_config)
     # Corpus statistics travel with the frozen set, so SCAF's support scorer uses
     # IDF from the same corpus the candidates came from (policy.SupportScorer v2).
@@ -110,11 +170,30 @@ def main(argv=None) -> int:
         print("  WARNING: SCAF support has no corpus statistics; falling back to "
               "coverage only (re-run the freeze step to emit them)")
 
-    generator = None                     # answer generation needs model weights
+    # -- generator -------------------------------------------------------
+    # Built ONCE and handed to both arms, so "same generator, same decoding" is a
+    # property of the object rather than a claim. Failures here are fatal: the
+    # comparison never downgrades to a mock or to a different model.
+    generator = None
+    generator_described: Dict[str, Any] = {}
     if args.generator != "none":
-        raise SystemExit(
-            f"generator backend {args.generator!r} is not wired into this script yet; "
-            "this milestone compares admission. Use --generator none.")
+        spec = GeneratorSpec.from_mapping(experiment_config.get("generation"))
+        spec.backend = args.generator
+        if args.generator_model:
+            spec.model = args.generator_model
+        if args.generator_revision:
+            spec.revision = args.generator_revision
+        spec.seed = int(experiment_config.get("experiment", {}).get("seed", spec.seed))
+        try:
+            generator = build_generator(spec)
+        except GeneratorUnavailable as exc:
+            raise SystemExit(f"cannot build the generator:\n{exc}") from exc
+        generator_described = generator.describe()
+        print(f"  generator        {generator_described['model']} "
+              f"({generator_described['backend']}, "
+              f"greedy={generator_described['greedy']}, "
+              f"max_new_tokens={generator_described['max_new_tokens']})")
+
 
     print(f"\nARM A  rag2   filter={args.rag2_filter}")
     arm_a = run_arm("rag2", rag2_filter, frozen_sets, generator)
@@ -130,11 +209,14 @@ def main(argv=None) -> int:
         "candidate_depth": provenance.get("depth"),
         "arm_a_filter": args.rag2_filter,
         "arm_a_filter_config": {"checkpoint": args.rag2_checkpoint or None},
+        "arm_a_checkpoint_identity": checkpoint_identity(args.rag2_checkpoint),
         "arm_b_filter": "scaf",
         "arm_b_filter_config": scaf_filter.describe(),
         # Identical by construction; fairness_report re-checks them.
+        # One object drives both arms, so these are the same dict by construction;
+        # fairness_report re-checks them anyway.
         "arm_a_generator": args.generator, "arm_b_generator": args.generator,
-        "arm_a_generation": {}, "arm_b_generation": {},
+        "arm_a_generation": generator_described, "arm_b_generation": generator_described,
         "arm_a_index": provenance.get("chunks") or provenance.get("cache"),
         "arm_b_index": provenance.get("chunks") or provenance.get("cache"),
     }
