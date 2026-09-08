@@ -166,7 +166,7 @@ checks, in the order they fire:
 4. checkpoint path is not a directory → refused
 5. missing `torch`/`transformers` → refused, naming the install command
 6. checkpoint unloadable → refused, naming what a checkpoint must contain
-7. then the 16 recorded preconditions (below)
+7. then the 18 recorded preconditions (below)
 
 Outputs to `experiments/runs/`: `per_question.jsonl` (full traces) and `manifest.json`.
 A run is reportable only when `manifest.reportable` is `true`; otherwise the
@@ -174,7 +174,7 @@ label reads `DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT`.
 
 ---
 
-## 7. The 16 preconditions, and where each is satisfied
+## 7. The 18 preconditions, and where each is satisfied
 
 Software readiness is settled in this repository. Everything else is a property
 of **your** machine and data.
@@ -194,6 +194,8 @@ of **your** machine and data.
 | Arm A filter loaded its label tokens | **environment** — needs torch + the checkpoint |
 | production MedCPT retrieval was used | **environment** — steps 1–3 |
 | no development retrieval stand-in | **environment** — use `--source medcpt` |
+| working tree was clean at run time | **environment** — commit before running; a dirty tree means the recorded commit does not describe the code |
+| candidates carry publication dates | **environment** — steps 1–3; SCAF's currency term reads `canonical_date` and is inert without it |
 
 In the development container the software rows pass and the environment rows
 fail — which is the correct report, not a defect.
@@ -202,7 +204,7 @@ fail — which is the correct report, not a defect.
 
 ## 8. After the run
 
-- `manifest.json` → `fairness` (9 checks) and `scientific` (16). Both must be
+- `manifest.json` → `fairness` (9 checks) and `scientific` (18). Both must be
   fully green before any number is quoted.
 - `manifest.arm_a_checkpoint_identity` records which checkpoint ran: resolved
   path, file listing, sizes, mtimes and a digest over that listing. Weight bytes

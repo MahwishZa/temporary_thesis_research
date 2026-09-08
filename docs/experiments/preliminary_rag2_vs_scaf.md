@@ -30,6 +30,11 @@ Run date 2026-09-08 · 30 questions · 600 candidates · frozen-set digest
 `151b7d54…aa8ccf3d` · manifest `reportable: false`, scientific preconditions
 **7/16**
 
+> **Later note.** The gate has since grown to **18** preconditions: a run made
+> from a dirty working tree is refused, and candidates must carry the publication
+> dates SCAF's currency term reads. The 7/16 above is left as measured — it is
+> what that run recorded. A rerun today would be scored out of 18.
+
 ---
 
 ## 0. Read this first: a corpus-design finding that blocks the research question

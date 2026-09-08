@@ -141,9 +141,10 @@ now live in `docs/reproduction/` rather than inside the container.
 ## 4. Why `preprocessing/pmc/` is one flat directory
 
 The modules import each other by bare name: `build_corpus_metadata` imports
-`parse_pmc_xml`, `embed_chunks` imports `build_chunks`, `retrieve` imports
-`embed_chunks`. Python resolves those only when the modules are **siblings on
-`sys.path`**, which is what running from inside the directory provides.
+`parse_pmc_xml`, and `embed_chunks` imports `compose_embed_text` from
+`build_chunks` so the encoder sees exactly the text the chunker composed. Python
+resolves bare names only when the modules are **siblings on `sys.path`**, which is
+what running from inside the directory provides.
 
 Splitting them into `acquisition/`, `chunking/` and `indexing/` subdirectories
 would look tidier in a tree diagram and break every one of those imports. The
@@ -152,7 +153,39 @@ in directories — a deliberate trade of cosmetic structure for working code.
 
 ---
 
-## 5. Code and data are separated, deliberately
+## 5. One canonical implementation, and what was retired
+
+There is exactly **one** experimental path. This section exists because there
+were briefly two, and anyone reading older commits or documents will meet the
+other one.
+
+| Question | Canonical answer |
+| --- | --- |
+| Where is the RAG² baseline? | `architecture/rag2/` — package in `rag2/rag2/`, authors' release in `retriever/` + `classifier/` |
+| Where is SCAF? | `architecture/scaf/` — `policy.py` (admission), `frozen.py` (candidate replay), `compare.py` (arms, fairness, preconditions), `generation.py` (the shared generator) |
+| What do they share? | `architecture/scaf/` calls the baseline's own interfaces — `rag2.filtering`, `rag2.llm`, `rag2.generation`, `rag2.evaluation`. There is no third "shared" package, deliberately: a shared layer between the thing under study and its extension is where the two quietly start influencing each other |
+| Where are experiments run? | `experiments/scripts/freeze_candidates.py`, then `experiments/scripts/run_comparison.py`, configured by `experiments/configs/preliminary_experiment.yaml` |
+| Where do results go? | `experiments/runs/` (gitignored), written up in `docs/experiments/` |
+
+### Retired, and why
+
+| Retired | Superseded by | Why |
+| --- | --- | --- |
+| `thesis/` (20 files) | `architecture/scaf/` + `experiments/` | It was an orchestration scaffold whose temporal policies all raised `TemporalPolicyError`, including `currency_three_state` — the very term SCAF implements. Its own header called it "a seam, not a method" |
+| `configs/thesis/` | `experiments/configs/` | configuration for the above |
+| `docs/architecture.md` | this document | described `thesis/`; its path also collided with the `docs/architecture/` directory |
+| `preprocessing/pmc/retrieve.py` | `architecture/rag2/rag2/retrieval/balanced.py` and `architecture/scaf/frozen.py` | a pre-reproduction prototype of balanced retrieval and candidate replay; its last consumer was `thesis/retrieval.py` |
+
+What was **kept** from `thesis/` before it went: the dirty-tree reportability
+gate, the carried-dates precondition, per-source admission counts, the
+answer-metrics hook, and two tracked package versions. Each is named in an
+attribution comment in `architecture/scaf/compare.py`. See
+[`reorganization_2026-09-08.md`](reorganization_2026-09-08.md) §13 for the full
+comparison and the evidence behind the choice.
+
+---
+
+## 6. Code and data are separated, deliberately
 
 Research data does not live inside source directories, and source code does not
 live inside data directories. The reason is not tidiness: it is that a reader
@@ -174,11 +207,11 @@ Two consequences worth knowing:
 
 ---
 
-## 6. What the boundaries do *not* guarantee
+## 7. What the boundaries do *not* guarantee
 
 The structure enforces that the baseline is untouched and that both arms see the
 same evidence. It does not, and cannot, establish that any scientific result has
 been produced. A green test run means the software is internally consistent —
 nothing more. Whether a number is reportable is decided by the 9 fairness checks
-and 16 scientific preconditions recorded in a run's manifest, not by the
+and 18 scientific preconditions recorded in a run's manifest, not by the
 directory layout.

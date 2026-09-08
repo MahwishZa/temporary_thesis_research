@@ -87,6 +87,25 @@ for executable references to date, recency or currency fields and fails the
 build if one appears; a companion test proves the scanner fires by feeding it
 real violations. See [`architecture/README.md`](architecture/README.md).
 
+## 3a. One canonical implementation
+
+There is exactly one experimental path: **`architecture/scaf/` + `experiments/`**.
+
+A second implementation — `thesis/`, an orchestration scaffold — briefly existed
+on `main`. It was retired because its temporal policies were declared interfaces
+that raised when applied, including the three-state currency term that is SCAF's
+central mechanism. The controls it genuinely did better (a dirty-tree
+reportability gate, a carried-dates precondition, per-source admission counts, an
+answer-metrics hook) were migrated into the canonical runner first.
+
+`preprocessing/pmc/retrieve.py` was removed with it: a pre-reproduction prototype
+of balanced retrieval and candidate replay, whose last consumer it was. Both
+mechanisms live in `architecture/rag2/rag2/retrieval/balanced.py` and
+`architecture/scaf/frozen.py`.
+
+Full reasoning and evidence:
+[`docs/architecture/architecture_map.md`](docs/architecture/architecture_map.md) §5.
+
 ## 4. Repository map
 
 | Path | What lives here | Read |
@@ -205,7 +224,7 @@ A reportable run must pass two gates, both recorded in its manifest:
 
 - **9 fairness checks** — both arms saw the same candidates in the same order,
   the same generator object, the same decoding parameters.
-- **16 scientific preconditions** — Arm A is the trained perplexity filter and
+- **18 scientific preconditions** — Arm A is the trained perplexity filter and
   not passthrough, retrieval was production MedCPT and not a development
   stand-in, a real generator is configured, the checkpoint exists and looks
   trained, and so on.
@@ -245,10 +264,10 @@ Last measured, all green:
 
 | Suite | Tests |
 | --- | --- |
-| `preprocessing/pmc` | 355 |
+| `preprocessing/pmc` | 301 |
 | `preprocessing/pubmed` | 51 |
 | `architecture/rag2` | 194 passed, 2 skipped (torch-gated) |
-| `architecture/scaf` | 132 |
+| `architecture/scaf` | 145 |
 
 Each suite runs in **its own process**, which is a correctness requirement
 rather than a convenience: importing `scaf` registers the `scaf` filter with the
