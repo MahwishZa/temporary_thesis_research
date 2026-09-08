@@ -44,7 +44,7 @@ from scaf.compare import (  # noqa: E402
 )
 from scaf.frozen import load, read_meta  # noqa: E402
 from scaf.generation import (  # noqa: E402
-    GeneratorSpec, GeneratorUnavailable, build_generator,
+    SCIENTIFIC_BACKENDS, GeneratorSpec, GeneratorUnavailable, build_generator,
 )
 
 DEFAULT_FROZEN = _ROOT / "experiments" / "runs" / "frozen_candidates.jsonl"
@@ -98,6 +98,18 @@ def main(argv=None) -> int:
             "--scientific requires a real generator: pass --generator huggingface.\n"
             "A reported RAG2-vs-SCAF result must contain generated answers; "
             "--generator none produces admission decisions only."
+        )
+
+    # build_generator() also refuses a non-scientific backend, but only after the
+    # filter is built -- which on the GPU machine means loading torch and a
+    # multi-GB checkpoint first. Refuse here instead, beside the other cheap
+    # checks, so 'stub' fails in the same second that 'none' does.
+    if args.scientific and args.generator not in SCIENTIFIC_BACKENDS:
+        raise SystemExit(
+            f"--scientific will not run with --generator {args.generator!r}.\n"
+            f"Allowed: {', '.join(SCIENTIFIC_BACKENDS)}.\n"
+            "'stub' is the offline wiring backend and must never produce a "
+            "reported answer."
         )
 
     if args.rag2_filter == "rag2_perplexity" and not args.rag2_checkpoint:

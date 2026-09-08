@@ -15,6 +15,7 @@ and is explicitly out of scope here -- see docs/runbooks/windows_experiment_runb
 """
 
 import os
+import subprocess
 import sys
 
 import pytest
@@ -298,6 +299,48 @@ class TestNoMockOnTheScientificPath:
         with open(path, encoding="utf-8") as fh:
             source = fh.read()
         assert "llm=" not in source, "the runner must never inject a fake LLM"
+
+    @pytest.mark.parametrize("backend", ["stub", "mock", "fake", "echo", ""])
+    def test_scientific_run_refuses_a_non_scientific_backend_early(self, backend, tmp_path):
+        """A fake backend must be refused before torch or a checkpoint is loaded.
+
+        build_generator() refuses it too, but only after the filter is built --
+        on the GPU machine that means loading torch and a multi-GB checkpoint
+        first. The runner checks it alongside the other cheap gates so 'stub'
+        fails in the same second that 'none' does.
+        """
+        checkpoint = tmp_path / "ckpt"
+        checkpoint.mkdir()
+        (checkpoint / "config.json").write_text('{"model_type": "t5"}', encoding="utf-8")
+        (checkpoint / "model.safetensors").write_bytes(b"\x00" * 64)
+
+        result = subprocess.run(
+            [sys.executable,
+             os.path.join(_ROOT, "experiments", "scripts", "run_comparison.py"),
+             "--scientific", "--rag2-filter", "rag2_perplexity",
+             "--rag2-checkpoint", str(checkpoint), "--generator", backend],
+            capture_output=True, text=True, cwd=_ROOT)
+        combined = result.stdout + result.stderr
+        assert result.returncode != 0, f"{backend!r} was not refused:\n{combined}"
+        assert "will not run with --generator" in combined or "requires a real generator" in combined
+        # Refused before any model machinery was touched.
+        assert "torch" not in combined.lower() or "will not run" in combined
+
+    def test_huggingface_is_not_refused_by_the_backend_gate(self, tmp_path):
+        """The gate must reject fakes without also blocking the real backend."""
+        checkpoint = tmp_path / "ckpt"
+        checkpoint.mkdir()
+        (checkpoint / "config.json").write_text('{"model_type": "t5"}', encoding="utf-8")
+        (checkpoint / "model.safetensors").write_bytes(b"\x00" * 64)
+
+        result = subprocess.run(
+            [sys.executable,
+             os.path.join(_ROOT, "experiments", "scripts", "run_comparison.py"),
+             "--scientific", "--rag2-filter", "rag2_perplexity",
+             "--rag2-checkpoint", str(checkpoint), "--generator", "huggingface"],
+            capture_output=True, text=True, cwd=_ROOT)
+        combined = result.stdout + result.stderr
+        assert "will not run with --generator" not in combined, combined
 
     def test_arm_generator_requires_a_real_backend_object(self):
         generator = ArmGenerator(spec(), FakeLLM())
