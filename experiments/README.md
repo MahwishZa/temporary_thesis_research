@@ -4,27 +4,31 @@ Three layers, deliberately kept apart. The rule is one-directional: **a layer ma
 call the layer below it, and may not modify it.**
 
 ```
-  3. experiments/scaf/            FUTURE SCAF EXTENSION      (not started)
+  3. experiments/scaf/            SCAF EXTENSION             (development runs)
         |  calls, never edits
-  2. experiments/recency_bias/    THESIS RECENCY-BIAS STUDY  (interface only)
+  2. experiments/recency_bias/    THESIS RECENCY-BIAS STUDY  (not started)
         |  calls, never edits
   1. experiments/baseline/        ORIGINAL RAG2 BASELINE     (runnable now)
         |  calls, never edits
-     thesis/                      the architecture that composes the layers below
-     rag2/                        the reproduced RAG2 system
-     pmc/                         corpus, chunks, MedCPT index
+     architecture/scaf/           the SCAF admission policy
+     architecture/rag2/           the reproduced RAG2 system
+     preprocessing/ + data/       corpus, chunks, MedCPT index
 ```
 
-The arms are selected by configuration rather than by separate scripts, so every
-condition provably shares one corpus, one query set and one evaluation protocol:
+Both arms are driven by one runner, so they provably share one corpus, one
+candidate set, one generator and one evaluation protocol — only admission
+differs:
 
 ```bash
-python -m thesis.run --list                                  # arms and policies
-python -m thesis.run --smoke                                 # offline wiring check
-python -m thesis.run -c configs/thesis/conditions/baseline.yaml
+python experiments/scripts/freeze_candidates.py --source medcpt --cache <cache>
+python experiments/scripts/run_comparison.py --scientific \
+    --rag2-filter rag2_perplexity --rag2-checkpoint <dir> --generator huggingface
 ```
 
-See [`docs/architecture.md`](../docs/architecture.md) for the full picture.
+See [`docs/architecture/architecture_map.md`](../docs/architecture/architecture_map.md)
+for the full picture, and
+[`docs/runbooks/windows_experiment_runbook.md`](../docs/runbooks/windows_experiment_runbook.md)
+for the production procedure.
 
 Why the separation is enforced rather than merely intended: the thesis measures
 what the *original* filter does with evidence of different ages. If baseline code
