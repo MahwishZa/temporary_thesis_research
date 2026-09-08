@@ -337,17 +337,43 @@ class TestScientificPreconditions:
         base.update(overrides)
         return base
 
-    def _run(self, tmp_path, frozen=None, **overrides):
+    #: A known-good environment. The live one is used in a real run, but a test
+    #: asserting "every precondition passes" must not fail merely because the
+    #: developer running it has uncommitted changes.
+    CLEAN_ENV = {"git_dirty": False, "git_commit": "0" * 40}
+
+    def _run(self, tmp_path, frozen=None, env=None, **overrides):
         from scaf.compare import scientific_report
         a, b = self._filters()
         overrides.setdefault("arm_a_filter_config",
                              {"checkpoint": self._trained_checkpoint(tmp_path)})
         return scientific_report(self._config(**overrides),
-                                 frozen or [make_set(f"q{i}") for i in range(20)], a, b)
+                                 frozen or [make_set(f"q{i}") for i in range(20)], a, b,
+                                 env=self.CLEAN_ENV if env is None else env)
 
     def test_a_correct_scientific_run_passes_every_precondition(self, tmp_path):
         report = self._run(tmp_path)
         assert report["all_passed"], report["failed"]
+
+    def test_a_dirty_working_tree_fails(self, tmp_path):
+        """A run whose git_commit does not describe the code that ran is not evidence."""
+        report = self._run(tmp_path, env={"git_dirty": True, "git_commit": "abc123"})
+        assert "working tree was clean at run time" in report["failed"]
+
+    def test_undated_candidates_fail_the_currency_precondition(self, tmp_path):
+        """Without dates SCAF's gamma is constant and the currency arm measures nothing."""
+        undated = [make_set(f"q{i}") for i in range(20)]
+        for fs in undated:
+            for candidate in fs.candidates:
+                candidate.canonical_date = ""
+        report = self._run(tmp_path, frozen=undated)
+        assert ("candidates carry publication dates (SCAF currency needs them)"
+                in report["failed"])
+
+    def test_dated_candidates_pass_the_currency_precondition(self, tmp_path):
+        report = self._run(tmp_path)
+        assert ("candidates carry publication dates (SCAF currency needs them)"
+                not in report["failed"])
 
     def test_passthrough_arm_a_fails(self, tmp_path):
         report = self._run(tmp_path, arm_a_filter="passthrough")

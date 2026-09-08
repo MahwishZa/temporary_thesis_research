@@ -267,6 +267,68 @@ def summarise(results: Sequence[ArmResult]) -> Dict[str, Any]:
                               for r in results if r.generation_error][:20],
         "mean_prompt_chars": round(
             sum(r.prompt_chars for r in ok) / len(ok), 1) if ok else 0.0,
+        # Migrated from thesis/evaluation.retrieval_report(). Balanced retrieval
+        # draws an equal quota per source category, so a shift in WHICH corpus an
+        # arm admits from is a real effect -- SCAF's authority term can favour the
+        # currency pack over abstracts without changing the overall rate at all.
+        "admitted_by_source": admitted_by_source(ok),
+    }
+
+
+def answer_report(results: Sequence[ArmResult],
+                  frozen_sets: Sequence[FrozenCandidateSet]) -> Optional[Dict[str, Any]]:
+    """Open-ended answer metrics, or ``None`` when the arm produced no answers.
+
+    Migrated from thesis/evaluation.py, including the principle that matters:
+    **answer metrics are absent rather than zero.** Reporting 0.0 for an arm that
+    never attempted an answer would be a fabricated number, and an arm run with
+    ``--generator none`` produces admission decisions only.
+
+    Metrics are not reimplemented here. ``rag2.evaluation`` already defines
+    ROUGE-L and BERTScore from the base paper's appendix, and both arms are
+    scored by that one function -- scoring the arms differently would make any
+    difference between them unattributable to admission policy.
+
+    The committed 30-question development set carries no gold answers, so this
+    returns a count-only report today. It becomes live the moment a question set
+    with ``answer`` in its metadata is used.
+    """
+    answered = [r for r in results if r.answer]
+    if not answered:
+        return None
+
+    references = {fs.qid: fs.question_metadata.get("answer")
+                  for fs in frozen_sets if fs.question_metadata.get("answer")}
+    paired = [(r.answer, references[r.qid]) for r in answered if r.qid in references]
+    report: Dict[str, Any] = {"answered": len(answered), "with_reference": len(paired)}
+    if not paired:
+        report["note"] = ("no gold answers in this question set; only counts are "
+                          "reported. Metrics are absent, not zero.")
+        return report
+
+    from rag2.evaluation import open_ended_metrics
+    report.update(open_ended_metrics([c for c, _ in paired], [r for _, r in paired],
+                                     metrics=["rouge_l"]))
+    return report
+
+
+def admitted_by_source(results: Sequence[ArmResult]) -> Dict[str, Dict[str, Any]]:
+    """Admission broken down by ``source_category``, admitted over considered."""
+    buckets: Dict[str, List[int]] = {}
+    for result in results:
+        for decision in result.decisions:
+            key = str(decision.get("source_category") or "unknown")
+            slot = buckets.setdefault(key, [0, 0])
+            slot[1] += 1
+            if decision.get("keep"):
+                slot[0] += 1
+    return {
+        key: {
+            "candidates": total,
+            "admitted": admitted,
+            "admission_rate": round(admitted / total, 6) if total else None,
+        }
+        for key, (admitted, total) in sorted(buckets.items())
     }
 
 
@@ -311,7 +373,10 @@ def environment() -> Dict[str, Any]:
             return None
 
     packages: Dict[str, Optional[str]] = {}
-    for name in ("torch", "transformers", "numpy", "faiss"):
+    # accelerate and sentencepiece come from thesis/provenance.TRACKED_PACKAGES:
+    # both change filter-training behaviour, so both belong in the run record.
+    for name in ("torch", "transformers", "numpy", "faiss",
+                 "accelerate", "sentencepiece"):
         try:
             packages[name] = str(getattr(__import__(name), "__version__", "unknown"))
         except Exception:
@@ -351,6 +416,11 @@ def build_manifest(frozen_sets: Sequence[FrozenCandidateSet],
         "arm_b_scaf": summarise(arm_b),
         "recency_arm_a_rag2": recency_profile(arm_a),
         "recency_arm_b_scaf": recency_profile(arm_b),
+        # One scoring protocol across both arms; None when an arm produced no
+        # answers, never 0.0. See :func:`answer_report`.
+        "answers_arm_a_rag2": answer_report(arm_a, frozen_sets),
+        "answers_arm_b_scaf": answer_report(arm_b, frozen_sets),
+        "temporal_fields": temporal_fields_carried(frozen_sets),
     }
 
 
@@ -363,7 +433,9 @@ DEVELOPMENT_RETRIEVAL_MARKERS = ("lexical", "tfidf", "bm25", "mock", "stub", "de
 
 def scientific_preconditions(config: Mapping[str, Any],
                              frozen_sets: Sequence[FrozenCandidateSet],
-                             arm_a_filter: Any, arm_b_filter: Any) -> List[Dict[str, Any]]:
+                             arm_a_filter: Any, arm_b_filter: Any,
+                             env: Optional[Mapping[str, Any]] = None,
+                             ) -> List[Dict[str, Any]]:
     """The conditions a *reportable* RAG2-vs-SCAF run must satisfy.
 
     These are separate from :func:`fairness_report`, which asks "were the two
@@ -433,7 +505,65 @@ def scientific_preconditions(config: Mapping[str, Any],
           f"generator={generator!r}")
 
     check("at least 20 questions", len(frozen_sets) >= 20, f"n={len(frozen_sets)}")
+
+    # -- the run is traceable to the code that produced it ----------------
+    # Migrated from thesis/provenance.py: RunRecord.is_reportable() refused a run
+    # made from a dirty tree. The manifest already recorded git_dirty, but nothing
+    # acted on it, so a reportable run could carry a git_commit that did not
+    # describe the code that ran.
+    # ``env`` is a parameter so tests can supply a known environment; a real run
+    # leaves it None and the live one is read.
+    resolved_env = environment() if env is None else env
+    check("working tree was clean at run time", resolved_env.get("git_dirty") is False,
+          f"git_dirty={resolved_env.get('git_dirty')!r} "
+          f"commit={resolved_env.get('git_commit')}")
+
+    # -- SCAF's currency term has dates to read ---------------------------
+    # Migrated from thesis/provenance.temporal_fields_carried(). Dates live in the
+    # index manifest, a different artifact from the chunk file, so "the corpus has
+    # dates" does not imply "retrieval returned them". Without them gamma collapses
+    # to a constant and the currency arm measures nothing -- silently.
+    carried = temporal_fields_carried(frozen_sets)
+    check("candidates carry publication dates (SCAF currency needs them)",
+          carried["complete"],
+          f"{carried['dated']}/{carried['candidates']} candidates dated"
+          + (f"; missing on {carried['undated_examples']}" if carried["undated_examples"] else ""))
     return checks
+
+
+#: Temporal fields a candidate must carry for the currency term to mean anything.
+#: Named after thesis/provenance.py's CARRIED_TEMPORAL_FIELDS, narrowed to the
+#: field SCAF actually reads.
+CARRIED_TEMPORAL_FIELDS = ("canonical_date",)
+
+
+def temporal_fields_carried(frozen_sets: Sequence[FrozenCandidateSet]) -> Dict[str, Any]:
+    """Do the frozen candidates actually carry the dates SCAF's gamma reads?
+
+    A candidate set without dates cannot support a currency arm. Recording the
+    answer turns a silent capability loss into a visible fact: gamma would fall
+    back to its undated default for every candidate and the arm would report "no
+    recency effect" when what happened was "no dates".
+    """
+    total = 0
+    dated = 0
+    undated: List[str] = []
+    for fs in frozen_sets:
+        for candidate in fs.candidates:
+            total += 1
+            value = getattr(candidate, "canonical_date", None)
+            if value in (None, ""):
+                if len(undated) < 5:
+                    undated.append(getattr(candidate, "chunk_id", "?"))
+            else:
+                dated += 1
+    return {
+        "candidates": total,
+        "dated": dated,
+        "undated": total - dated,
+        "complete": bool(total) and dated == total,
+        "undated_examples": undated,
+    }
 
 
 def checkpoint_identity(path: Optional[str]) -> Dict[str, Any]:
@@ -480,8 +610,9 @@ def checkpoint_identity(path: Optional[str]) -> Dict[str, Any]:
 
 
 def scientific_report(config: Mapping[str, Any], frozen_sets: Sequence[FrozenCandidateSet],
-                      arm_a_filter: Any, arm_b_filter: Any) -> Dict[str, Any]:
-    checks = scientific_preconditions(config, frozen_sets, arm_a_filter, arm_b_filter)
+                      arm_a_filter: Any, arm_b_filter: Any,
+                      env: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    checks = scientific_preconditions(config, frozen_sets, arm_a_filter, arm_b_filter, env)
     failed = [c for c in checks if not c["pass"]]
     return {
         "checks": checks,
