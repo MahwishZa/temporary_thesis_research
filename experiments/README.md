@@ -12,7 +12,7 @@ call the layer below it, and may not modify it.**
         |  calls, never edits
      thesis/                      the architecture that composes the layers below
      rag2/                        the reproduced RAG2 system
-     pmc/                         corpus, chunks, MedCPT index
+     data/pmc/                    corpus, chunks, MedCPT index
 ```
 
 The arms are selected by configuration rather than by separate scripts, so every

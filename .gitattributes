@@ -24,10 +24,10 @@
 
 # Byte-exact snapshots. These are pinned by MD5 and their provenance records
 # that digest, so checkout must never alter a single byte. In particular
-# pmc/currency_pack/xml/PMC13082890.xml is the Cochrane CD016297 snapshot
+# data/pmc/currency_pack/xml/PMC13082890.xml is the Cochrane CD016297 snapshot
 # (MD5 dcb1ac4eaa24b75ab3202f2315c6b2e4); CRLF conversion silently breaks it.
-pmc/currency_pack/xml/** -text
-pmc/fulltext/xml/**      -text
+data/pmc/currency_pack/xml/** -text
+data/pmc/fulltext/xml/**      -text
 
 # The RAG2 authors' released code, vendored verbatim. "Unmodified" in
 # docs/rag2_reproduction_audit.md means byte-identical to their release, so these
@@ -36,5 +36,5 @@ rag2/retriever/**        -text
 rag2/classifier/**       -text
 
 # Git LFS payloads: binary as far as git is concerned.
-pubmed/pubmed_results.csv  filter=lfs diff=lfs merge=lfs -text
-pubmed/pubmed_results.json filter=lfs diff=lfs merge=lfs -text
+data/pubmed/pubmed_results.csv  filter=lfs diff=lfs merge=lfs -text
+data/pubmed/pubmed_results.json filter=lfs diff=lfs merge=lfs -text

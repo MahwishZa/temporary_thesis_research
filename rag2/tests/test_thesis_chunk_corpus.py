@@ -1,6 +1,6 @@
 """The adapter that lets the baseline retrieve over this repository's corpus.
 
-``pmc/`` produces a chunk layer and a MedCPT index in its own format, not the
+``data/pmc/`` holds a chunk layer and a MedCPT index in its own format, not the
 article/embedding layout of the authors' release. These tests pin the join
 between the two files, the row-alignment invariant that keeps a retrieved vector
 pointing at the right passage, and the provenance-carrying policy.

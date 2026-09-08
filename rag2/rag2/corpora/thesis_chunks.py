@@ -1,14 +1,15 @@
-"""Corpus backed by the thesis chunk layer built under ``pmc/``.
+"""Corpus backed by the thesis chunk layer built under ``data/pmc/``.
 
 The baseline's other loader (:mod:`rag2.corpora.json_corpus`) reads the article
 /embedding layout of the authors' release. This repository's corpus is built by
-``pmc/build_chunks.py`` and ``pmc/embed_chunks.py`` instead, which produce a
+the thesis corpus-build stages ``chunking`` and ``embedding`` instead, which
+produce a
 different but equivalent pair of artifacts:
 
-    pmc/chunks/chunks.jsonl      one JSON object per chunk, carrying ``text``
-    pmc/index/embeddings.f32     row-major float32 MedCPT vectors, 768-dim
-    pmc/index/index_manifest.jsonl  one row per vector: chunk_id + provenance
-    pmc/index/index_meta.json    encoder id, dim, counts, digests, production flag
+    data/pmc/chunks/chunks.jsonl     one JSON object per chunk, carrying ``text``
+    data/pmc/index/embeddings.f32    row-major float32 MedCPT vectors, 768-dim
+    data/pmc/index/index_manifest.jsonl  one row per vector: chunk_id + provenance
+    data/pmc/index/index_meta.json   encoder id, dim, counts, digests, production flag
 
 Two properties of that layout drive this module:
 
@@ -70,7 +71,7 @@ def _read_jsonl(path: str) -> Iterator[Dict[str, Any]]:
 
 
 class ThesisChunkCorpus(Corpus):
-    """One source category of the ``pmc/`` chunk layer, as a retrievable corpus."""
+    """One source category of the ``data/pmc/`` chunk layer, as a retrievable corpus."""
 
     def __init__(self, config: CorpusConfig) -> None:
         options = dict(config.options or {})
@@ -88,7 +89,7 @@ class ThesisChunkCorpus(Corpus):
             raise ValueError(
                 f"corpus {config.name!r}: the thesis_chunks loader needs both "
                 "options.index_dir (holding embeddings.f32 + index_manifest.jsonl) "
-                "and options.chunks_path (pmc/chunks/chunks.jsonl)"
+                "and options.chunks_path (data/pmc/chunks/chunks.jsonl)"
             )
 
         self.manifest_path = os.path.join(self.index_dir, "index_manifest.jsonl")
@@ -102,8 +103,8 @@ class ThesisChunkCorpus(Corpus):
         if missing:
             raise FileNotFoundError(
                 f"corpus {config.name!r}: {len(missing)} required file(s) not found, first: "
-                f"{missing[0]}. Build the chunk layer with pmc/build_chunks.py and the index "
-                "with pmc/embed_chunks.py before running retrieval."
+                f"{missing[0]}. Build the chunk layer with thesis.corpus_build.chunking.build_chunks "
+                "and the index with thesis.corpus_build.embedding.embed_chunks first."
             )
 
         self.index_meta: Dict[str, Any] = {}
@@ -118,7 +119,7 @@ class ThesisChunkCorpus(Corpus):
                     f"corpus {config.name!r}: {self.meta_path} reports production=false, i.e. the "
                     f"index was built with a stub encoder ({self.index_meta.get('encoder')!r}). "
                     "Stub vectors are not valid for reported results. Rebuild with "
-                    "pmc/embed_chunks.py --encoder medcpt, or set "
+                    "thesis.corpus_build.embedding.embed_chunks --encoder medcpt, or set "
                     "options.require_production_index=false for a wiring test."
                 )
 

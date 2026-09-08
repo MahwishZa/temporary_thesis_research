@@ -263,8 +263,9 @@ Appendix A.3 and Table A1 specify the corpus as **the Self-BioRAG corpus**
   `Textbook_Total_*`), and `rag2/corpora/json_corpus.py` reads exactly that
   layout so an existing index drops straight in.
 
-**This repository's corpus.** The thesis corpus is built by `pmc/build_chunks.py`
-and `pmc/embed_chunks.py`, which write a different pair of artifacts
+**This repository's corpus.** The thesis corpus is built by the corpus-build
+stages `thesis.corpus_build.chunking.build_chunks` and
+`thesis.corpus_build.embedding.embed_chunks`, which write a different pair of artifacts
 (`chunks.jsonl` plus `embeddings.f32` + `index_manifest.jsonl`). `rag2/corpora/
 thesis_chunks.py` reads that layout and presents it through the same `Corpus`
 interface, so **no baseline code changes to run over it**. Two structural notes:

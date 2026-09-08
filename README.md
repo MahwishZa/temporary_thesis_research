@@ -1,78 +1,115 @@
 # thesis_research — Alzheimer's evidence corpus
 
-Data-preparation repository for an MS thesis on **recency bias in confidence-derived
+Research repository for an MS thesis on **recency bias in confidence-derived
 evidence-utility signals for retrieval-augmented Alzheimer's clinical reasoning**,
 extending the RAG² framework (Sohn et al., NAACL 2025).
 
-It holds three things, kept deliberately apart: the **retrieval corpus** (`pmc/`,
-`pubmed/`), the **reproduced original RAG² baseline** (`rag2/`), and the
-**research architecture** (`thesis/`) that composes them into one runnable
-pipeline. The thesis experiments themselves (`experiments/`) are not written yet.
+It holds four things, kept deliberately apart:
+
+| | Where | What it is |
+| --- | --- | --- |
+| **Source** | `src/thesis/` | one installable package: the corpus-build stages and the research architecture |
+| **Data** | `data/` | the corpus and its provenance record — evidence, never code |
+| **Baseline** | `rag2/` | the reproduced **original** RAG² system, vendored whole |
+| **Experiments** | `experiments/` | the three-layer experiment boundary; none has been run |
 
 Start with [`docs/architecture.md`](docs/architecture.md): it states which
 components are implemented and validated, which are baselines, which are declared
 interfaces awaiting a method, and which are future work. No experiment has been
 run and no result exists.
 
+## Quick start
+
+```bash
+pip install -e .                  # src-layout package; no heavy dependencies
+python -m thesis.run --list       # conditions and temporal policies
+python -m thesis.run --smoke      # offline end-to-end wiring check, ~1s
+python -m pytest                  # every suite: 657 passed, 2 skipped
+```
+
+The package installs from `src/`, so every command above works from any working
+directory. Without an install, prefix commands with `PYTHONPATH=src`.
+
 ## Pipeline stages
 
-| Stage | Directory | What it produces |
+| Stage | Code | Data it produces |
 | --- | --- | --- |
-| 1. PubMed acquisition | `pubmed/` | 43,409 records from the approved query bank |
-| 2. PMC open-access inventory | `pmc/` | 27,508 candidates, licence + availability |
-| 3. PMC full-text download | `pmc/fulltext/` | 25,742 MD5-verified JATS XML + manifest |
-| 4. XML parsing | `pmc/parsed/` | One structured JSON record per article |
-| 5. Quality control | `pmc/` (reports) | Full-corpus QC reports |
-| 6. Corpus policy metadata (M1–M4) | `pmc/metadata/`, `pmc/currency_pack/` | Dates, eligibility, CPG layer, currency pack |
-| 7. Retrieval-ready chunks | `pmc/chunks/` | Deterministic chunks with full provenance |
-| 8. MedCPT index + retrieval | `pmc/index/` | Exact inner-product search, candidate replay |
-| 9. Original RAG² baseline | `rag2/` | Rationale → balanced retrieval → filter → answer |
-| 10. Research architecture | `thesis/` | Query → retrieval → condition → result + provenance |
+| 1. PubMed acquisition | `corpus_build/acquisition/fetch_pubmed.py` | `data/pubmed/` — 43,409 records from the approved query bank |
+| 2. PMC open-access inventory | `corpus_build/acquisition/inventory_pmc_oa.py` | `data/pmc/inventory/` — 27,508 candidates, licence + availability |
+| 3. PMC full-text download | `corpus_build/acquisition/download_pmc_xml.py` | `data/pmc/fulltext/` — 25,742 MD5-verified JATS XML + manifest |
+| 4. XML parsing | `corpus_build/parsing/parse_pmc_xml.py` | `data/pmc/parsed/` — one structured JSON record per article |
+| 5. Quality control | `corpus_build/qc/` | `docs/corpus/qc/` — full-corpus QC reports and integrity gates |
+| 6. Corpus policy metadata (M1–M4) | `corpus_build/metadata/build_corpus_metadata.py` | `data/pmc/metadata/`, `data/pmc/currency_pack/` |
+| 7. Retrieval-ready chunks | `corpus_build/chunking/build_chunks.py` | `data/pmc/chunks/` — deterministic chunks with full provenance |
+| 8. MedCPT index + retrieval | `corpus_build/embedding/`, `corpus_build/indexing/` | `data/pmc/index/` — exact inner-product search, candidate replay |
+| 9. Original RAG² baseline | `rag2/` | rationale → balanced retrieval → filter → answer |
+| 10. Research architecture | `src/thesis/` (top level) | query → retrieval → condition → result + provenance |
+
+Stages 1–8 are one package, one stage per subdirectory, and a stage never
+imports a later one. Each is runnable on its own:
+
+```bash
+python -m thesis.corpus_build.chunking.build_chunks --help
+```
 
 ## Layout
 
 ```
-pubmed/                    PubMed acquisition
-  fetch_pubmed.py            E-utilities pipeline
-  search_queries.txt         approved query bank (read-only input)
-  pubmed_results.csv/.json   retrieved records (Git LFS)
-  search_log.csv             per-query audit log
+pyproject.toml             package + tooling configuration
+conftest.py                puts src/ on sys.path so tests run without installing
 
-pmc/                       PMC acquisition, parsing, QC, corpus policy
-  inventory_pmc_oa.py        builds the OA inventory
-  download_pmc_xml.py        MD5-verified XML downloader
-  parse_pmc_xml.py           JATS -> structured records
-  qc_investigate.py          independent QC detector
-  build_corpus_metadata.py   M1-M4 corpus policy metadata
-  test_*.py                  test suites (see below)
-  pmc_oa_inventory*.csv      inventory + reconciliation snapshot
-  pmc_qc_report_*.md         generated QC reports
-  fulltext/                  manifest.csv, failures.csv  (xml/ is gitignored)
-  parsed/                    parsed records (gitignored, regenerable)
-  metadata/                  M1-M4 overlays + registries  (see its README)
-  currency_pack/             externally ingested currency-pack documents
-  build_chunks.py            retrieval-ready chunk layer
-  validate_chunks.py         chunk/provenance integrity gate
-  chunks/                    chunk_stats.json committed; chunks.jsonl gitignored
-  embed_chunks.py            MedCPT index builder  (pmc/index/ is gitignored)
-  retrieve.py                exact search + candidate replay
+src/thesis/                THE SOURCE. One package, installed from src/.
+  paths.py                   the single source of truth for every on-disk location
+  config.py                  typed config with YAML inheritance
+  queries.py                 query normalisation                       [1]
+  retrieval.py               retrieval facade over the indexing stage  [2]
+  corpus.py                  corpus handle + digest verification       [3]
+  recency.py                 the temporal-policy boundary              [4]
+  conditions/                baseline | rag2 | recency_aware           [5]
+  provenance.py              corpus/model stamps, run records          [7]
+  evaluation.py              per-condition metrics and comparison      [8]
+  pipeline.py                the orchestrator
+  run.py                     the CLI entry point  (`python -m thesis.run`)
+  smoke.py                   the offline end-to-end wiring check
+  _bootstrap.py              the one seam onto the vendored rag2/ package
+  corpus_build/              THE CORPUS PIPELINE, one stage per directory
+    acquisition/               PubMed search, PMC inventory, XML download
+    parsing/                   JATS XML -> structured records
+    qc/                        QC detectors + the chunk and index integrity gates
+    metadata/                  the frozen M1-M4 corpus policy overlays
+    chunking/                  256-word / 32-overlap retrieval units
+    embedding/                 MedCPT article-encoder vectors + row manifest
+    indexing/                  exact search, balanced retrieval, candidate replay
+
+data/                      RESEARCH DATA. Evidence, not code.
+  pubmed/                    query bank, retrieved records (Git LFS), audit log
+  pmc/
+    inventory/                 OA inventory + reconciliation snapshot (immutable)
+    fulltext/                  manifest.csv, failures.csv   (xml/ gitignored)
+    parsed/                    parsed records               (gitignored, regenerable)
+    metadata/                  M1-M4 overlays + registries  (see its README)
+    currency_pack/             externally ingested currency-pack documents
+    chunks/                    chunk_stats.json committed; chunks.jsonl gitignored
+    index/, candidates/        (gitignored; rebuilt on the GPU machine)
+
+tests/                     ONE SUITE, three levels
+  unit/                      per-module tests
+  integration/               stages composed: chunk -> embed -> retrieve
+  smoke/                     the architecture end to end on a synthetic corpus
+
+configs/thesis/            architecture.yaml + one file per experimental condition
+docs/                      architecture, the RAG2 audit, corpus documentation + QC reports
+experiments/               baseline | recency_bias | scaf   (see experiments/README.md)
 
 rag2/                      reproduced ORIGINAL RAG2 baseline  (see below)
   rag2/                      the reproduction package
-  configs/                   experiment configs, incl. thesis_corpus.yaml
-  scripts/                   one CLI per stage + smoke test
-  tests/                     baseline test suite
-  docs/                      the reproduction's own specification + results
+  configs/, scripts/, tests/, docs/
   retriever/, classifier/    the RAG2 authors' released code, UNMODIFIED
-
-experiments/               the three-layer separation  (see experiments/README.md)
-  baseline/                  original RAG2 runs
-  recency_bias/              thesis probe        (not started)
-  scaf/                      SCAF extension      (not started)
-
-docs/
-  rag2_reproduction_audit.md  what was reproduced, verified, and left unverified
 ```
+
+`rag2/` deliberately keeps its own layout, tests and pytest.ini. It is a vendored
+unit certified as a whole by [`docs/rag2_reproduction_audit.md`](docs/rag2_reproduction_audit.md);
+restructuring it would invalidate that certificate for no architectural gain.
 
 ## Chunking (stage 7)
 
@@ -94,7 +131,8 @@ Two implementation decisions follow from that text:
 
 Title and section heading are stored as separate fields, not baked into the
 text; `build_chunks.compose_embed_text()` is the single shared rule for
-composing what the encoder sees.
+composing what the encoder sees — the embedding stage imports it rather than
+restating it, so what is indexed and what is scored cannot drift apart.
 
 Frozen policy is enforced, never re-decided: records whose M4
 `eligibility_status` is `excluded` are not chunked; everything else carries its
@@ -103,12 +141,12 @@ frozen status through so retrieval can filter. Exact-duplicate text is
 types must survive, because recency is an experimental variable.
 
 ```bash
-python3 pmc/build_chunks.py        # writes pmc/chunks/{chunks.jsonl,chunk_stats.json}
-python3 pmc/validate_chunks.py     # integrity gate; exits non-zero on failure
+python -m thesis.corpus_build.chunking.build_chunks   # -> data/pmc/chunks/
+python -m thesis.corpus_build.qc.validate_chunks      # integrity gate; non-zero on failure
 ```
 
 Both are deterministic: the same frozen inputs produce byte-identical output.
-`validate_chunks.py` prints a content digest for cross-run comparison.
+`validate_chunks` prints a content digest for cross-run comparison.
 
 ## Retrieval infrastructure (stage 8)
 
@@ -158,10 +196,10 @@ later runs the `cu121` build, and newer drivers stay backward compatible.
 ### Building the index
 
 ```bash
-python3 pmc/embed_chunks.py --device cuda --batch-size 8   # -> pmc/index/
-python3 pmc/verify_index.py                                # integrity gate
-python3 pmc/retrieve.py --query "..." --query-id q1
-python3 pmc/retrieve.py --replay pmc/candidates/q1.json
+python -m thesis.corpus_build.embedding.embed_chunks --device cuda --batch-size 8
+python -m thesis.corpus_build.qc.verify_index                    # integrity gate
+python -m thesis.corpus_build.indexing.retrieve --query "..." --query-id q1
+python -m thesis.corpus_build.indexing.retrieve --replay data/pmc/candidates/q1.json
 ```
 
 Three properties matter for a run this long:
@@ -180,7 +218,7 @@ Three properties matter for a run this long:
 GPU. `--limit N` embeds only the first N chunks for a smoke test and stamps the
 result `partial_index_limit` so it cannot be mistaken for the production index.
 
-`verify_index.py` is the gate to run before anything retrieves: it checks row
+`verify_index` is the gate to run before anything retrieves: it checks row
 count against the chunk layer, dimension, row-for-row alignment, absence of
 NaN/Inf, L2 normalisation, and that `content_digest` recomputes to the recorded
 value.
@@ -206,12 +244,19 @@ Inside `rag2/`, two things are kept apart on purpose:
 | `rag2/retriever/`, `rag2/classifier/` | the RAG² authors' released code, **unmodified** |
 | `rag2/rag2/`, `configs/`, `scripts/`, `tests/` | the reproduction |
 
+Exactly two files under `rag2/` were written by this thesis rather than by the
+authors — `rag2/rag2/corpora/thesis_chunks.py` (the corpus loader, which must
+live in the package to be registered) and `rag2/configs/thesis_corpus.yaml`
+(loaded by RAG²'s own test). `tests/unit/test_condition_isolation.py` names
+those two, fails on any other change under `rag2/`, and proves the loader's
+executable content still matches `origin/main` docstring-for-docstring.
+
 **Models required** (none are downloaded by the tests or the smoke test):
 
 | Role | Model | Needed for |
 | --- | --- | --- |
 | Query encoder | `ncbi/MedCPT-Query-Encoder` | retrieval |
-| Article encoder | `ncbi/MedCPT-Article-Encoder` | building `pmc/index/` |
+| Article encoder | `ncbi/MedCPT-Article-Encoder` | building `data/pmc/index/` |
 | Reranker | `ncbi/MedCPT-Cross-Encoder` | reranking |
 | Filter | `google/flan-t5-large` + a trained checkpoint | filtering |
 | Backbone LLM | `meta-llama/Meta-Llama-3-8B-Instruct` | rationales, answers |
@@ -225,13 +270,13 @@ must be retrained (`rag2/scripts/03_build_filter_labels.py`, then `04_train_filt
 cd rag2
 pip install -r requirements.txt
 python3 scripts/smoke_test.py     # offline wiring check: no GPU, no downloads, ~2s
-python3 -m pytest                 # baseline test suite
+python3 -m pytest                 # the baseline suite on its own
 ```
 
 Configure it against this repository's corpus with
-`rag2/configs/thesis_corpus.yaml`, which points the baseline at `pmc/index/` and
-`pmc/chunks/chunks.jsonl` through the `thesis_chunks` corpus loader. Run the
-stage scripts from the repository root so those relative paths resolve. Stage
+`rag2/configs/thesis_corpus.yaml`, which points the baseline at `data/pmc/index/`
+and `data/pmc/chunks/chunks.jsonl` through the `thesis_chunks` corpus loader. Run
+the stage scripts from the repository root so those relative paths resolve. Stage
 commands are in [`experiments/baseline/README.md`](experiments/baseline/README.md).
 
 ### What is verified, and what is not
@@ -261,38 +306,36 @@ below and may not modify it.
 Nothing in this repository implements SCAF, recency weighting, authority
 weighting, currency scoring, supersession or abstention. The baseline measures
 the *untouched* original, so `rag2/tests/test_metadata_isolation.py` fails the
-build if any baseline module starts reading publication dates.
+build if any baseline module starts reading publication dates, and
+`tests/unit/test_condition_isolation.py` enforces the same rule on the
+architecture layer.
 
 ## Running the tests
 
-Tests import their module by name, so run them from inside the package directory:
-
 ```bash
-cd pmc    && python3 -m unittest test_parse_pmc_xml test_qc_investigate \
-                                 test_download_pmc_xml test_inventory_pmc_oa \
-                                 test_build_corpus_metadata test_build_chunks \
-                                 test_retrieval test_verify_index
-cd pubmed && python3 -m unittest test_fetch_pubmed test_pipeline_integration
-cd rag2   && python3 -m pytest
+python -m pytest                  # everything: tests/ and rag2/tests
+python -m pytest tests/unit       # or any single level
+cd rag2 && python -m pytest       # the baseline suite standalone
 ```
 
 All suites are offline — no network, no corpus files, no model weights required.
-Last measured: **355 passed** (`pmc/`), **51 passed** (`pubmed/`),
-**194 passed, 2 skipped** (`rag2/`; both skips are torch-gated modules).
+Last measured: **657 passed, 2 skipped** in total (both skips are torch-gated
+modules in `rag2/`).
 
 ## Regenerating derived data
 
-Raw XML (`pmc/fulltext/xml/`) and parsed records (`pmc/parsed/`) are gitignored: they are
-research data, reconstructible from the inventory plus the manifest's MD5s. The corpus
-policy overlays are committed as research evidence and are regenerated with:
+Raw XML (`data/pmc/fulltext/xml/`) and parsed records (`data/pmc/parsed/`) are
+gitignored: they are research data, reconstructible from the inventory plus the
+manifest's MD5s. The corpus policy overlays are committed as research evidence
+and are regenerated with:
 
 ```bash
-python3 pmc/build_corpus_metadata.py --no-fetch      # Linux/macOS
-python  pmc\build_corpus_metadata.py --no-fetch      # Windows
+python -m thesis.corpus_build.metadata.build_corpus_metadata --no-fetch
 ```
 
-Run this on the machine holding the **complete** parsed corpus: it upgrades canonical dates
-from PubMed fallback to JATS-primary for all PMC records. See `pmc/metadata/README.md`.
+Run this on the machine holding the **complete** parsed corpus: it upgrades
+canonical dates from PubMed fallback to JATS-primary for all PMC records. See
+[`data/pmc/metadata/README.md`](data/pmc/metadata/README.md).
 
 ## Current status
 
@@ -302,23 +345,27 @@ and the retrieval stack are built. The original RAG² baseline is integrated and
 Outstanding, in order:
 
 1. Full-corpus canonical-date regeneration (above), on the machine with the complete
-   parsed corpus. `pmc/chunks/chunk_stats.json` should be refreshed from that run — the
-   committed copy records a partial container run, not the production one.
+   parsed corpus. `data/pmc/chunks/chunk_stats.json` should be refreshed from that run —
+   the committed copy records a partial container run, not the production one.
 2. Build the MedCPT index on the GPU machine:
-   `python pmc\embed_chunks.py --device cuda --batch-size 8`, then
-   `python pmc\verify_index.py`. Resumable — re-run the same command after any
-   interruption. Install the CUDA torch build first (see stage 8); a `+cpu`
-   build silently runs this on the CPU.
+   `python -m thesis.corpus_build.embedding.embed_chunks --device cuda --batch-size 8`,
+   then `python -m thesis.corpus_build.qc.verify_index`. Resumable — re-run the same
+   command after any interruption. Install the CUDA torch build first (see stage 8);
+   a `+cpu` build silently runs this on the CPU.
 3. Train the RAG² filter, then run the baseline and record results in
    `rag2/docs/reproduction_results.md`. **No accuracy has been measured yet.**
 4. Only then: the recency-bias probe.
 
 ## Provenance notes
 
-- `pmc/pmc_oa_inventory.csv` is immutable — the authoritative acquisition record.
-- `pmc/currency_pack/xml/PMC13082890.xml` is an exact pinned snapshot (MD5
+- `data/pmc/inventory/pmc_oa_inventory.csv` is immutable — the authoritative
+  acquisition record.
+- `data/pmc/currency_pack/xml/PMC13082890.xml` is an exact pinned snapshot (MD5
   `dcb1ac4eaa24b75ab3202f2315c6b2e4`). The PMC object is revised in place, so re-fetching
   yields a different hash; this snapshot must not be replaced. Licensed CC BY-NC —
   redistribution is non-commercial, with attribution to the Cochrane review it contains.
 - Document identity is **PMID-primary**, PMCID for the full-text join; DOI is a consistency
   check only, never an identity key.
+- The QC reports under `docs/corpus/qc/` quote absolute Windows paths from the runs
+  that produced them. Those are the record of what was executed and are left as
+  written; they are not live references.

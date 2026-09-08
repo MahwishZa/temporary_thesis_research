@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thesis-research"
+version = "0.1.0"
+description = "Evidence currency and recency bias in retrieval-augmented generation for Alzheimer's disease questions"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Mahwish Zafar" }]
+
+# Deliberately empty. The corpus build, the MedCPT encoders and the RAG2
+# baseline each need heavy, machine-specific stacks (torch, transformers, faiss)
+# that are installed per machine, and the unit tests run without any of them.
+# Pinning them here would make `pip install -e .` fail on a laptop that only
+# needs to read the code.
+dependencies = []
+
+[project.optional-dependencies]
+# The GPU machine that builds the index and runs the conditions.
+models = ["torch", "transformers", "numpy"]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+thesis = "thesis.run:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["thesis*"]
+
+[tool.pytest.ini_options]
+# Both suites in one command. rag2/tests is the reproduction's own suite and
+# keeps its own pytest.ini for when it is run standalone from rag2/.
+testpaths = ["tests", "rag2/tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+extend-exclude = ["rag2/retriever", "rag2/classifier"]

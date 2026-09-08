@@ -3,8 +3,9 @@
 How the repository's parts compose into one executable research pipeline, what is
 implemented, and what is deliberately not.
 
-The architecture adds a thin orchestration layer (`thesis/`) over components that
-already existed and were validated separately. It implements **no research method
+The architecture adds a thin orchestration layer (the top level of
+`src/thesis/`) over components that already existed and were validated
+separately. It implements **no research method
 of its own**: the corpus, the MedCPT retrieval foundation and the reproduced RAG²
 baseline are called, never reimplemented or edited.
 
@@ -16,24 +17,25 @@ baseline are called, never reimplemented or edited.
   research query
     |
     v
-  [1] query normalisation                thesis/queries.py
+  [1] query normalisation                src/thesis/queries.py
     |                                      one query set, digest-recorded,
     |                                      identical across every arm
     v
-  [2] retrieval                          thesis/retrieval.py -> pmc/retrieve.py
+  [2] retrieval                          src/thesis/retrieval.py
+    |                                      -> corpus_build/indexing/retrieve.py
     |                                      MedCPT query encoder, exact flat search,
     |                                      equal quota per source category,
     |                                      total ordering, replayable candidate sets
     v
-  [3] candidate evidence                 thesis/corpus.py
+  [3] candidate evidence                 src/thesis/corpus.py
     |                                      chunk_id, document_id, source_category,
     |                                      text, canonical_date, provenance overlays
     v
-  [4] temporal policy                    thesis/recency.py
+  [4] temporal policy                    src/thesis/recency.py
     |                                      'none' for every implemented arm;
     |                                      declared interface, no algorithm yet
     v
-  [5] experimental condition             thesis/conditions/
+  [5] experimental condition             src/thesis/conditions/
     |     baseline   retrieval only, temporally blind
     |     rag2       the reproduced filter, called through its own interfaces
     |     recency    inner arm + temporal policy   (INTERFACE ONLY)
@@ -41,15 +43,15 @@ baseline are called, never reimplemented or edited.
   [6] generation                         rag2/rag2/generation.py  (rag2 arm only)
     |
     v
-  [7] evidence + provenance record       thesis/provenance.py
+  [7] evidence + provenance record       src/thesis/provenance.py
     |                                      corpus digest, model ids, config
     |                                      fingerprint, git commit, environment
     v
-  [8] evaluation                         thesis/evaluation.py
+  [8] evaluation                         src/thesis/evaluation.py
                                            one protocol across arms
 ```
 
-Orchestration is `thesis/pipeline.py`; the entry point is `python -m thesis.run`.
+Orchestration is `src/thesis/pipeline.py`; the entry point is `python -m thesis.run`.
 
 ---
 
@@ -59,17 +61,17 @@ Read this table before citing anything from this repository.
 
 | Layer | Component | Status |
 | --- | --- | --- |
-| Corpus acquisition | `pubmed/`, `pmc/` (inventory, download, parse, QC) | **implemented and validated** (pre-existing) |
-| Corpus policy/metadata | `pmc/metadata/`, `pmc/currency_pack/` (M1–M4 overlays) | **implemented and validated** (pre-existing) |
-| Chunk construction | `pmc/build_chunks.py` (256-word windows, 32 overlap) | **implemented and validated** (pre-existing) |
-| MedCPT embedding/index | `pmc/embed_chunks.py`, `pmc/verify_index.py` | **implemented** (pre-existing); index is built per machine, never committed |
-| Retrieval | `pmc/retrieve.py` — exact, balanced, replayable | **implemented and validated** (pre-existing) |
+| Corpus acquisition | `corpus_build/{acquisition,parsing,qc}/` | **implemented and validated** (pre-existing) |
+| Corpus policy/metadata | `data/pmc/metadata/`, `data/pmc/currency_pack/` (M1–M4 overlays) | **implemented and validated** (pre-existing) |
+| Chunk construction | `thesis.corpus_build.chunking.build_chunks` (256-word windows, 32 overlap) | **implemented and validated** (pre-existing) |
+| MedCPT embedding/index | `thesis.corpus_build.embedding.embed_chunks`, `thesis.corpus_build.qc.verify_index` | **implemented** (pre-existing); index is built per machine, never committed |
+| Retrieval | `thesis.corpus_build.indexing.retrieve` — exact, balanced, replayable | **implemented and validated** (pre-existing) |
 | RAG² reproduction | `rag2/` | **implemented and audited** (pre-existing); see `docs/rag2_reproduction_audit.md` |
-| **Architecture layer** | **`thesis/`** | **implemented by this change; smoke-tested, not yet run on the production index** |
-| Baseline condition | `thesis/conditions/retrieval_only.py` | **implemented** |
-| RAG² condition | `thesis/conditions/rag2_condition.py` | **implemented**; needs a trained filter checkpoint to run |
-| Recency condition | `thesis/conditions/recency_aware.py` | **interface only** — see §5 |
-| Temporal policies | `thesis/recency.py` | **interface only**; every named policy raises when applied |
+| **Architecture layer** | **`src/thesis/` (top level)** | **implemented by this change; smoke-tested, not yet run on the production index** |
+| Baseline condition | `src/thesis/conditions/retrieval_only.py` | **implemented** |
+| RAG² condition | `src/thesis/conditions/rag2_condition.py` | **implemented**; needs a trained filter checkpoint to run |
+| Recency condition | `src/thesis/conditions/recency_aware.py` | **interface only** — see §5 |
+| Temporal policies | `src/thesis/recency.py` | **interface only**; every named policy raises when applied |
 | SCAF / FRB-PAIRS | `experiments/scaf/` | **not started, deliberately** — see §6 |
 | Thesis results | anywhere | **none exist.** No experiment has been run |
 
@@ -82,7 +84,7 @@ Nothing in the "interface only" rows is a research contribution. They are seams.
 The corpus is an established asset and this layer does not rebuild, re-chunk or
 re-embed any part of it.
 
-* **`thesis/corpus.py`** opens `pmc/chunks/chunks.jsonl` and `pmc/index/` and
+* **`src/thesis/corpus.py`** opens `data/pmc/chunks/chunks.jsonl` and `data/pmc/index/` and
   exposes one record shape: text, `chunk_id`, `document_id`, `source_category`,
   `canonical_date` and every overlay the M1–M4 metadata pass established. Fields
   it has never heard of are preserved under `extra` rather than dropped.
@@ -90,12 +92,12 @@ re-embed any part of it.
   contract: the loader compares it against the corpus on disk and *refuses to
   proceed* on a mismatch. Silently recording whatever digest was present would
   make a mismatch invisible — precisely what provenance exists to prevent.
-* **`thesis/retrieval.py`** is a facade over `pmc/retrieve.py`. It adds no
+* **`src/thesis/retrieval.py`** is a facade over `thesis.corpus_build.indexing.retrieve`. It adds no
   scoring, ranking or caching of its own; putting retrieval behaviour in two
   places is how two places come to disagree.
 * **MedCPT asymmetry is respected.** `ncbi/MedCPT-Article-Encoder` embedded the
   chunks; `ncbi/MedCPT-Query-Encoder` embeds the queries searched against them.
-  (`pmc.embed_chunks.get_encoder("medcpt", …)` returns the *article* encoder —
+  (`thesis.corpus_build.embedding.embed_chunks.get_encoder("medcpt", …)` returns the *article* encoder —
   correct for indexing, wrong for queries — so the facade constructs the query
   encoder explicitly. `test_uses_the_query_encoder_not_the_article_encoder` pins it.)
 
@@ -103,7 +105,7 @@ re-embed any part of it.
 
 ## 4. How RAG² connects without being redesigned
 
-`thesis/conditions/rag2_condition.py` contains no RAG² algorithm. It translates
+`src/thesis/conditions/rag2_condition.py` contains no RAG² algorithm. It translates
 across a seam and nothing else:
 
 | Needs | Reached through |
@@ -125,7 +127,7 @@ Only evidence *text* crosses into the filter. Corpus provenance rides in
 a (question, snippet) pair and nothing else, and feeding it corpus metadata would
 change what is being reproduced.
 
-`thesis/tests/test_condition_isolation.py::TestRag2TreeUntouched` fails the build
+`tests/unit/test_condition_isolation.py::TestRag2TreeUntouched` fails the build
 if this layer modifies `rag2/` at all.
 
 ---
@@ -190,8 +192,8 @@ Prerequisites for a real run, both built on the machine holding the MedCPT
 weights and neither committed:
 
 ```bash
-python pmc/build_chunks.py      # -> pmc/chunks/chunks.jsonl
-python pmc/embed_chunks.py      # -> pmc/index/
+python -m thesis.corpus_build.chunking.build_chunks    # -> data/pmc/chunks/chunks.jsonl
+python -m thesis.corpus_build.embedding.embed_chunks  # -> data/pmc/index/
 ```
 
 ### Configuration hierarchy
@@ -213,9 +215,9 @@ Overrides use RAG²'s own parser: `-o retrieval.final_top_k=16`.
 
 | Artefact | Location | Committed? |
 | --- | --- | --- |
-| chunks, index, candidate sets | `pmc/chunks/`, `pmc/index/`, `pmc/candidates/` | no (gitignored) |
+| chunks, index, candidate sets | `data/pmc/chunks/`, `data/pmc/index/`, `data/pmc/candidates/` | no (gitignored) |
 | run outputs | `experiments/{condition}/runs/{name}/` | no (gitignored) |
-| `chunk_stats.json` | `pmc/chunks/` | **yes** — committed evidence of the run |
+| `chunk_stats.json` | `data/pmc/chunks/` | **yes** — committed evidence of the run |
 | run records | beside each run's outputs | no; cite the fingerprint instead |
 
 ---
@@ -243,13 +245,13 @@ later for unclear reasons.
 ## 9. Known blockers before thesis experiments
 
 1. **The production corpus is not present here.** Committed
-   `pmc/chunks/chunk_stats.json` records a *partial* container run (60,874 chunks
+   `data/pmc/chunks/chunk_stats.json` records a *partial* container run (60,874 chunks
    over 76 parsed records), not the production build reported as 42,964 documents
    / 781,563 chunks / 773,183 unique, digest `da1886b0…`. Until
    `corpus.expected_chunk_digest` is set to a digest the corpus on disk actually
    reports, every run record carries `digest_verified: false` and
    `reportable: false`. This is deliberate; see `docs/rag2_reproduction_audit.md` §10.
-2. **No MedCPT index is built in this checkout** — `pmc/index/` is gitignored.
+2. **No MedCPT index is built in this checkout** — `data/pmc/index/` is gitignored.
 3. **No trained filter checkpoint.** The paper's is not distributed; the RAG² arm
    cannot run until one is trained (`rag2/scripts/04_train_filter.py`).
 4. **No evaluation query set exists yet.** `queries.path` is empty by necessity.

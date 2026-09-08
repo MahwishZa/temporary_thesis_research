@@ -7,7 +7,7 @@ outputs, configs specific to a run, and notes; the implementation lives in
 ## Running a stage
 
 From the repository root, with the corpus and index already built
-(`pmc/build_chunks.py`, then `pmc/embed_chunks.py`):
+(`thesis.corpus_build.chunking.build_chunks`, then `thesis.corpus_build.embedding.embed_chunks`):
 
 ```bash
 # 1-2  rationale -> balanced retrieval -> rerank, cached once

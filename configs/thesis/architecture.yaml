@@ -13,14 +13,14 @@ seed: 42
 rag2_config: rag2/configs/thesis_corpus.yaml
 
 corpus:
-  chunks_path: pmc/chunks/chunks.jsonl
-  chunk_stats_path: pmc/chunks/chunk_stats.json
-  index_dir: pmc/index
+  chunks_path: data/pmc/chunks/chunks.jsonl
+  chunk_stats_path: data/pmc/chunks/chunk_stats.json
+  index_dir: data/pmc/index
 
   # PROVENANCE CONTRACT. Set this to the digest of the production chunk build a
-  # result may come from; thesis/corpus.py verifies it and refuses a mismatch.
+  # result may come from; src/thesis/corpus.py verifies it and refuses a mismatch.
   #
-  # Left empty here because the committed pmc/chunks/chunk_stats.json records a
+  # Left empty here because the committed data/pmc/chunks/chunk_stats.json records a
   # PARTIAL container run (60,874 chunks over 76 parsed records), not the
   # production build -- see docs/rag2_reproduction_audit.md section 10. Filling
   # this in with the production digest is a prerequisite for any reported result;
@@ -45,7 +45,7 @@ retrieval:
   per_category: 10    # balanced quota per source category (base paper 3.4)
   final_top_k: 8
   rerank: true
-  candidates_dir: pmc/candidates
+  candidates_dir: data/pmc/candidates
   replay_from: ""     # set to a saved candidate dir to score the same population
 
 recency:
