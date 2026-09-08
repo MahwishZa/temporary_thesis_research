@@ -13,5 +13,5 @@ already produced and carried:
 | authority tier, currency-pack membership, retraction | `Evidence.metadata` — carried, never read by the baseline |
 | identical candidate population across arms | `rag2.cache` fingerprinted replay (validity control V3) |
 
-Nothing here may edit `rag2/rag2/**`. If an experiment seems to need a baseline
+Nothing here may edit `architecture/rag2/rag2/**`. If an experiment seems to need a baseline
 change, that is a finding to write down, not a patch to apply.
