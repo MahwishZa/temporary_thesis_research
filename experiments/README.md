@@ -6,13 +6,25 @@ call the layer below it, and may not modify it.**
 ```
   3. experiments/scaf/            FUTURE SCAF EXTENSION      (not started)
         |  calls, never edits
-  2. experiments/recency_bias/    THESIS RECENCY-BIAS STUDY  (not started)
+  2. experiments/recency_bias/    THESIS RECENCY-BIAS STUDY  (interface only)
         |  calls, never edits
   1. experiments/baseline/        ORIGINAL RAG2 BASELINE     (runnable now)
         |  calls, never edits
+     thesis/                      the architecture that composes the layers below
      rag2/                        the reproduced RAG2 system
      pmc/                         corpus, chunks, MedCPT index
 ```
+
+The arms are selected by configuration rather than by separate scripts, so every
+condition provably shares one corpus, one query set and one evaluation protocol:
+
+```bash
+python -m thesis.run --list                                  # arms and policies
+python -m thesis.run --smoke                                 # offline wiring check
+python -m thesis.run -c configs/thesis/conditions/baseline.yaml
+```
+
+See [`docs/architecture.md`](../docs/architecture.md) for the full picture.
 
 Why the separation is enforced rather than merely intended: the thesis measures
 what the *original* filter does with evidence of different ages. If baseline code

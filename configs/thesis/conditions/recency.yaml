@@ -1,0 +1,22 @@
+# Recency arm -- INTERFACE ONLY, NOT RUNNABLE.
+#
+# The thesis has not fixed its recency method, so `recency_weighted` resolves to
+# an UnimplementedTemporalPolicy that RAISES when applied. That is deliberate: a
+# recency arm configured against a policy that does not exist must fail loudly,
+# not quietly emit baseline numbers under a recency label.
+#
+# To make this runnable: implement a TemporalPolicy, register it in
+# thesis/recency.py, and name it below. Compare it against baseline.yaml with
+# retrieval.replay_from pointing at the same saved candidate set, so both arms
+# provably score one evidence population.
+
+base: ../architecture.yaml
+
+name: recency
+condition:
+  name: recency
+  notes: "PLACEHOLDER. Declared interface; no recency algorithm is implemented."
+recency:
+  policy: recency_weighted
+  options:
+    inner: baseline

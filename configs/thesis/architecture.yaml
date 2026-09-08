@@ -1,0 +1,65 @@
+# Thesis architecture -- shared settings every experimental condition inherits.
+#
+# This file governs the layer ABOVE RAG2: which corpus, which queries, which arm.
+# Reproduction-critical settings (MedCPT ids, filter behaviour, prompts, decoding)
+# live in the RAG2 config referenced below and are not duplicated here.
+#
+#     python -m thesis.run -c configs/thesis/conditions/baseline.yaml
+
+name: thesis-architecture
+seed: 42
+
+# Referenced, never copied. RAG2's own loader parses it.
+rag2_config: rag2/configs/thesis_corpus.yaml
+
+corpus:
+  chunks_path: pmc/chunks/chunks.jsonl
+  chunk_stats_path: pmc/chunks/chunk_stats.json
+  index_dir: pmc/index
+
+  # PROVENANCE CONTRACT. Set this to the digest of the production chunk build a
+  # result may come from; thesis/corpus.py verifies it and refuses a mismatch.
+  #
+  # Left empty here because the committed pmc/chunks/chunk_stats.json records a
+  # PARTIAL container run (60,874 chunks over 76 parsed records), not the
+  # production build -- see docs/rag2_reproduction_audit.md section 10. Filling
+  # this in with the production digest is a prerequisite for any reported result;
+  # until then every run record carries digest_verified=false and reportable=false.
+  expected_chunk_digest: ""
+  expected_chunk_count: null
+  expected_document_count: null
+
+  require_production_index: true
+  source_categories:
+    - pubmed-abstract
+    - pmc-fulltext
+    - currency-pack
+
+queries:
+  path: ""            # set per experiment; the same set across arms
+  name: ""
+  version: ""
+  limit: null
+
+retrieval:
+  per_category: 10    # balanced quota per source category (base paper 3.4)
+  final_top_k: 8
+  rerank: true
+  candidates_dir: pmc/candidates
+  replay_from: ""     # set to a saved candidate dir to score the same population
+
+recency:
+  policy: none        # the control. Named policies are declared, not implemented.
+  options: {}
+
+condition:
+  name: baseline
+  notes: ""
+
+evaluation:
+  metrics: [retrieval_report]
+  references_path: ""
+
+output:
+  dir: experiments/{condition}/runs/{name}
+  write_candidates: true

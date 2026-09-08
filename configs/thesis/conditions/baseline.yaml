@@ -1,0 +1,14 @@
+# Control arm: retrieval only, no evidence filter, temporally blind.
+#
+# Everything the other arms are compared against. Admits the reranked top-k as
+# retrieval ordered it and generates nothing, so any later difference is
+# attributable to that arm's admission policy rather than to retrieval.
+
+base: ../architecture.yaml
+
+name: baseline
+condition:
+  name: baseline
+  notes: "Control arm. Retrieval only; dates carried, never read."
+recency:
+  policy: none

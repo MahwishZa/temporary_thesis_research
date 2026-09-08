@@ -1,0 +1,17 @@
+# RAG2 arm: the reproduced original filter, called through its own interfaces.
+#
+# Nothing about RAG2's algorithm is configured here -- filter kind, checkpoint,
+# prompts, thresholds and decoding all come from rag2/configs/thesis_corpus.yaml.
+# This file only selects the arm.
+#
+# Prerequisite: filter.checkpoint must be set in the RAG2 config. The paper's
+# trained filter is not distributed; train one with rag2/scripts/04_train_filter.py.
+
+base: ../architecture.yaml
+
+name: rag2
+condition:
+  name: rag2
+  notes: "Reproduced RAG2 filter over the thesis corpus. No thesis extension."
+recency:
+  policy: none
