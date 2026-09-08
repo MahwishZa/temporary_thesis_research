@@ -112,10 +112,17 @@ responsibilities have since moved:
 | balanced retrieval | `architecture/rag2/rag2/retrieval/` |
 | candidate persistence and replay | `architecture/scaf/frozen.py` |
 
-Nothing imports it but its own 54 tests, which still pass. It is retained
-deliberately: it is a validated, standard-library-only reference for both
-mechanisms, and removing tested code is a scientific decision rather than a
-tidying one. Any removal belongs in its own explicit commit.
+Nothing **on this branch** imports it but its own 54 tests, which still pass.
+**On `origin/main` it has a live consumer**: `thesis/retrieval.py` loads it via
+`thesis/_bootstrap.py`. That tree is not on this branch and was not part of this
+reorganisation — see
+[`docs/architecture/reorganization_2026-09-08.md`](../docs/architecture/reorganization_2026-09-08.md)
+§13.
+
+So it is retained for two reasons, not one: it is a validated,
+standard-library-only reference for both mechanisms, *and* code outside this
+branch depends on it. Any removal must resolve that dependency first, in its own
+explicit commit.
 
 ## Why `pmc/` is one flat directory
 

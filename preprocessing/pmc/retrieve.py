@@ -15,10 +15,13 @@
    candidate persistence      ``architecture/scaf/frozen.py``
    =========================  =====================================
 
-   Nothing imports it except its own tests. It is kept because it is a working,
-   tested, standard-library-only reference for the two mechanisms above, and
-   deleting a validated implementation is a scientific decision rather than a
-   tidying one. Removing it is deferred to a separate, explicit commit.
+   Nothing on this branch imports it except its own tests. **On ``origin/main``
+   it has a live consumer**: ``thesis/retrieval.py`` loads it through
+   ``thesis/_bootstrap.py``. That tree is not on this branch and was not part of
+   this reorganisation -- see
+   ``docs/architecture/reorganization_2026-09-08.md`` section 13. So this module
+   is not merely retained for reference; something outside this branch depends
+   on it, and it must not be removed without resolving that first.
 
    Read it as documentation. Run the pipeline through
    ``architecture/rag2/scripts/02_retrieve.py`` and
