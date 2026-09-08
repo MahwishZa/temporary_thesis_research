@@ -1,6 +1,7 @@
 # Repository reorganization — migration record
 
-**Date:** 2026-09-08 · **Commits:** 6, from `da4ffc6` · **Baseline:** `ed2eee6`
+**Date:** 2026-09-08 · **Reorganization:** commits 1–6 from `da4ffc6` ·
+**Architecture integration:** §13 · **Baseline:** `ed2eee6`
 
 What moved, what deliberately did not, what was verified, and what is still
 open. This is the record to consult when a path in an older document does not
@@ -36,7 +37,8 @@ redesign.
 | 3 | `8063491` | Source components into `preprocessing/` and `architecture/` | 135 files, **all R100 pure renames** |
 | 4 | `d0fa0b9` | Imports, configs, scripts, documentation | 65 files, 1176 insertions / 626 deletions |
 | 5 | `8c8517b` | Validation and this record | 3 files |
-| 6 | *this commit* | The §13 finding, found while pushing, and the `retrieve.py` corrections it forces | 3 files |
+| 6 | `0669b86` | The §13 finding, found while pushing, and the `retrieve.py` corrections it forced | 3 files |
+| — | *later* | Architecture integration: merge `main`, migrate, retire `thesis/` (§13) | 5 commits |
 
 Commits 2 and 3 contain **only** renames — no content change — so the diff for
 the risky part of the migration is mechanically checkable. All content edits are
@@ -78,11 +80,10 @@ by bare name, which Python resolves only for siblings on `sys.path`. Splitting
 into `acquisition/`, `chunking/`, `indexing/` would look tidier and break every
 one of those imports.
 
-**`preprocessing/pmc/retrieve.py` is kept** (your decision 3), documented as
-SUPERSEDED in its own docstring and in `preprocessing/README.md`, with its 54
-tests preserved. Removal is deferred to its own commit — and §13 records that it
-has a live consumer on `origin/main`, which makes keeping it necessary rather
-than merely prudent.
+**`preprocessing/pmc/retrieve.py` was kept** through the reorganization
+(decision 3), documented as SUPERSEDED with its 54 tests preserved. It was
+**removed later**, in the architecture integration, once its last consumer
+(`thesis/retrieval.py`) was retired with the rest of that tree — see §13.
 
 **Production-scale artifacts stay gitignored and stay where they are on disk.**
 No XML, chunk layer, index, embeddings or checkpoint was moved or committed.
@@ -228,71 +229,59 @@ baseline → SCAF dependency direction and the controlled-comparison invariant
 (same candidates, same reranking, same generator, same decoding, different
 admission) are preserved and were re-verified after the move.
 
-## 13. UNRESOLVED: `origin/main` carries a tree this reorganization never saw
+## 13. RESOLVED: the `thesis/` divergence and how it was settled
 
-**This needs your decision before the branch is merged.**
+**Status: resolved.** Recorded here because the reasoning matters more than the
+outcome.
 
-The forensic audit and the approved architecture were performed against this
-branch, whose base is `ed2eee6`. After that base was cut, `origin/main` gained
-content from a different branch (PR #16, `claude/thesis-architecture`) that is
-**not on this branch and was therefore never audited, never proposed, and never
-migrated**:
+`origin/main` had advanced past this branch's base (`ed2eee6`) with content from
+PR #16 that was never audited or proposed here: `thesis/` (20 files),
+`configs/thesis/` (4) and `MS_Thesis_Proposal.pdf`. Two implementations of the
+same experiment therefore existed on two branches. They were merged into one tree
+and the duplication resolved in favour of `architecture/scaf/` + `experiments/`.
 
-| On `origin/main`, absent here | Size |
+### Why the canonical choice went that way
+
+| | `architecture/scaf/` + `experiments/` | `thesis/` |
+| --- | --- | --- |
+| The thesis's currency method | **implemented**: σ, γ three-state, τ; ρ declared at weight 0 | `UnimplementedTemporalPolicy` — `currency_three_state` **raises when applied** |
+| Comparison design | one paired controlled comparison, 9 fairness checks | N independent conditions, no paired fairness report |
+| Reportability gates | 18 scientific preconditions, run aborts | `is_reportable()`, 3 reasons |
+| Candidate control | frozen set digested over identity **and** order | replay via `pmc/retrieve.py` |
+| Retrieval path | the audited `architecture/rag2/rag2/retrieval/` | the superseded `pmc/retrieve.py` prototype |
+
+`thesis/recency.py` describes itself as "a seam, not a method", and main's own
+`docs/architecture.md` marked the recency condition "(INTERFACE ONLY)". Adopting
+it would have meant the thesis's central mechanism did not exist in code.
+
+### What was kept from `thesis/`
+
+Migrated before the tree was retired, each named in an attribution comment in
+`architecture/scaf/compare.py`:
+
+| From `thesis/` | Now |
 | --- | --- |
-| `thesis/` — 20 files: `pipeline.py`, `retrieval.py`, `recency.py`, `provenance.py`, `evaluation.py`, `conditions/{rag2_condition,recency_aware,retrieval_only}.py`, tests | ~129 KB with `configs/` |
-| `configs/thesis/` — `architecture.yaml` + three condition configs | |
-| `MS_Thesis_Proposal.pdf` | |
+| `provenance.RunRecord.is_reportable()` dirty-tree refusal | precondition 17 |
+| `provenance.temporal_fields_carried()` | precondition 18 + `manifest.temporal_fields` |
+| `evaluation.retrieval_report()` source breakdown | `summarise()["admitted_by_source"]` |
+| `evaluation.answer_report()` "absent rather than zero" | `answer_report()` |
+| `provenance.TRACKED_PACKAGES` | `accelerate`, `sentencepiece` now recorded |
 
-### Why it matters, concretely
+### What was removed
 
-**1. Merging this reorganization into `main` will break `thesis/`.** Three
-verified breakages, all from paths this migration changed:
+`thesis/`, `configs/thesis/`, `docs/architecture.md` (superseded by
+`architecture_map.md`, and its path collided with the `docs/architecture/`
+directory), and `preprocessing/pmc/retrieve.py` with its 54 tests — obsolete once
+`thesis/retrieval.py`, its last consumer, was gone. Both of its mechanisms have
+canonical homes with their own tests: balanced retrieval in
+`architecture/rag2/rag2/retrieval/balanced.py` (14 tests), candidate replay in
+`architecture/scaf/frozen.py` (46 tests).
 
-| `thesis/` code | Breaks because |
-| --- | --- |
-| `_bootstrap.py`: `RAG2_ROOT = <repo>/rag2` | the container is now `architecture/rag2` |
-| `_bootstrap.py`: repo root on `sys.path` "so `pmc` and `thesis` import" | `pmc/` is now `preprocessing/pmc/` |
-| `retrieval.py`: `pmc_retrieve_module()`, `from pmc import embed_chunks` | same |
+`MS_Thesis_Proposal.pdf` was kept and moved to `docs/`.
 
-`conditions/rag2_condition.py` imports `rag2.*` only through `_bootstrap`, so it
-breaks with it.
+### The `retrieve.py` correction, closed
 
-**2. `thesis/` overlaps `architecture/scaf/` and `experiments/`.** Both trees
-implement the same comparison from different angles:
-
-| `thesis/` on main | this branch |
-| --- | --- |
-| `conditions/retrieval_only.py` | Arm A with `--rag2-filter passthrough` |
-| `conditions/rag2_condition.py` | Arm A with `--rag2-filter rag2_perplexity` |
-| `conditions/recency_aware.py` | `architecture/scaf/policy.py` (γ currency term) |
-| `pipeline.py`, `run.py` | `experiments/scripts/run_comparison.py` |
-| `retrieval.py` → `pmc/retrieve.py` | `experiments/scripts/freeze_candidates.py` → `architecture/scaf/frozen.py` |
-
-**3. It changes the standing of `retrieve.py`.** `thesis/retrieval.py` is a live
-consumer of `preprocessing/pmc/retrieve.py`. On this branch the module is
-unimported; on `main` it is not. Keeping it (your decision 3) is therefore
-clearly correct, and removing it later requires resolving that dependency first.
-
-### What was deliberately not done
-
-`thesis/` was **not** merged in, migrated, or edited. Doing so would mean
-reorganizing 24 files that no forensic audit covered and no approved proposal
-mentioned, and it would require deciding whether `thesis/conditions/` or
-`architecture/scaf/` + `experiments/` is the intended experimental path. Those
-two trees are alternative answers to the same question, and choosing between
-them is a research decision, not a migration step.
-
-### The options
-
-1. **Adopt `architecture/scaf/` + `experiments/` as the experimental path** and
-   retire `thesis/` — it is the newer, guarded implementation (16 scientific
-   preconditions, 9 fairness checks, frozen-candidate digests).
-2. **Adopt `thesis/`** and retire `architecture/scaf/` + `experiments/scripts/`.
-3. **Keep both**, in which case `thesis/` needs its own migration commit
-   repointing `_bootstrap.py` and `retrieval.py` at the new paths — roughly an
-   hour, mechanical, and testable against `thesis/tests/`.
-
-Option 3 is the minimum required to merge this branch without breaking `main`.
-Options 1 and 2 are the real question.
-
+Commit 6 corrected a claim that nothing imported `retrieve.py`; on `main`,
+`thesis/retrieval.py` did. Both are now gone, so the module has no consumers at
+all and was removed rather than kept. Recover it if ever needed:
+`git show 17eaefb:preprocessing/pmc/retrieve.py`.

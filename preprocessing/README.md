@@ -17,7 +17,8 @@ ACQUIRE → PARSE → QUALITY CONTROL → POLICY → CHUNK → INDEX
 | Chunk | `preprocessing/pmc/build_chunks.py`, `preprocessing/pmc/validate_chunks.py` | 256-word windows, 32-word overlap, full provenance |
 | Index | `preprocessing/pmc/embed_chunks.py`, `preprocessing/pmc/verify_index.py` | MedCPT vectors + manifest, and the gate that checks them |
 
-`retrieve.py` is **not** in that table. See "Superseded modules" below.
+That is the whole pipeline. See "Removed modules" below for what used to sit
+beside it and no longer does.
 
 ## Chunking strategy
 
@@ -100,37 +101,38 @@ Run `verify_index.py` before anything retrieves. It checks row count against the
 chunk layer, dimension, row-for-row alignment, absence of NaN/Inf, L2
 normalisation, and that `content_digest` recomputes to the recorded value.
 
-## Superseded modules
+## Removed modules
 
-`preprocessing/pmc/retrieve.py` is a working prototype that is **no longer on
-the experimental path**. It was the first implementation of balanced retrieval
-and candidate-set replay, written before the RAG² reproduction existed. Both
-responsibilities have since moved:
+`preprocessing/pmc/retrieve.py` **was removed** in the architecture integration.
+It was the first implementation of balanced retrieval and candidate-set replay,
+written before the RAG² reproduction existed. Both responsibilities had already
+moved, each to a canonical home with its own tests:
 
-| `retrieve.py` provided | superseded by |
-| --- | --- |
-| balanced retrieval | `architecture/rag2/rag2/retrieval/` |
-| candidate persistence and replay | `architecture/scaf/frozen.py` |
+| `retrieve.py` provided | canonical home | tests |
+| --- | --- | --- |
+| balanced retrieval | `architecture/rag2/rag2/retrieval/balanced.py` | 14 |
+| candidate persistence and replay | `architecture/scaf/frozen.py` | 46 |
 
-Nothing **on this branch** imports it but its own 54 tests, which still pass.
-**On `origin/main` it has a live consumer**: `thesis/retrieval.py` loads it via
-`thesis/_bootstrap.py`. That tree is not on this branch and was not part of this
-reorganisation — see
+Its last consumer outside its own tests was `thesis/retrieval.py`, and that tree
+was retired in the same integration. Keeping a second, unused implementation of
+the two mechanisms the experiment's validity rests on invites the wrong one being
+read as authoritative.
+
+Recover it with `git show <commit>^:preprocessing/pmc/retrieve.py` if the
+standard-library reference is ever wanted; see
 [`docs/architecture/reorganization_2026-09-08.md`](../docs/architecture/reorganization_2026-09-08.md)
 §13.
-
-So it is retained for two reasons, not one: it is a validated,
-standard-library-only reference for both mechanisms, *and* code outside this
-branch depends on it. Any removal must resolve that dependency first, in its own
-explicit commit.
 
 ## Why `pmc/` is one flat directory
 
 The modules import each other by bare name — `build_corpus_metadata` imports
-`parse_pmc_xml`, `embed_chunks` imports `build_chunks`, `retrieve` imports
-`embed_chunks`. Python resolves those only when the modules are **siblings on
-`sys.path`**. Splitting them into `acquisition/`, `chunking/` and `indexing/`
-subdirectories would look tidier and break every one of those imports.
+`parse_pmc_xml`, and `embed_chunks` imports `compose_embed_text` from
+`build_chunks` so the encoder sees exactly the text the chunker composed. Every
+test module imports its subject the same way. Python resolves bare names only
+when the modules are **siblings on `sys.path`**, which is what running from
+inside the directory provides. Splitting them into `acquisition/`, `chunking/`
+and `indexing/` subdirectories would look tidier and break every one of those
+imports.
 
 The stages are therefore expressed in the table above rather than in directories.
 This is a deliberate trade of cosmetic structure for working code.
@@ -141,7 +143,7 @@ Tests sit beside the modules they cover and import them by bare name, so run
 them from inside the directory:
 
 ```bash
-cd preprocessing/pmc    && python3 -m unittest discover -s . -p 'test_*.py'   # 355
+cd preprocessing/pmc    && python3 -m unittest discover -s . -p 'test_*.py'   # 301
 cd preprocessing/pubmed && python3 -m unittest discover -s . -p 'test_*.py'   #  51
 ```
 
