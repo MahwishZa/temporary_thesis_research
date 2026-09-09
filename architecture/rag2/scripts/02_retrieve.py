@@ -25,6 +25,7 @@ from rag2.datasets.base import build_dataset
 from rag2.experiment import write_json
 from rag2.llm.base import build_llm
 from rag2.pipeline import run_retrieval
+from rag2.rationale import validate_rationales
 from rag2.retrieval.balanced import corpus_distribution
 
 
@@ -32,6 +33,10 @@ def main() -> int:
     parser = add_common_args(argparse.ArgumentParser(description=__doc__))
     parser.add_argument("--rationales", default="", help="reuse a rationales.json from stage 1")
     parser.add_argument("--out", default="", help="cache path (default: derived from the config)")
+    parser.add_argument(
+        "--allow-incomplete-rationales", action="store_true",
+        help="retrieve with the raw question wherever a rationale is missing or blank. "
+             "This is the paper's MedCPT baseline row for those questions, NOT RAG2.")
     args = parser.parse_args()
 
     config = resolve_config(args)
@@ -47,6 +52,36 @@ def main() -> int:
         with open(args.rationales, "r", encoding="utf-8") as handle:
             rationales = json.load(handle)
         print(f"reusing {len(rationales)} rationales from {args.rationales}")
+
+        # RAG2 retrieves with the rationale. Where one is missing or blank,
+        # retrieval_query() falls back to the raw question -- the paper's MedCPT
+        # baseline, not this method. An interrupted generation or a qid mismatch
+        # produces exactly that, per question and without a word. Refuse.
+        report = validate_rationales(rationales, questions)
+        print(f"  rationale coverage {report['with_rationale']}/{report['questions']}"
+              f"  (median {report['median_chars']} chars, "
+              f"shortest {report['shortest_chars']})")
+        if report["unused_keys"]:
+            print(f"  WARNING: {len(report['unused_keys'])} key(s) in the file match no "
+                  f"question: {', '.join(report['unused_keys'][:5])}")
+        if not report["complete"]:
+            detail = []
+            if report["missing"]:
+                detail.append(f"missing: {', '.join(report['missing'][:10])}")
+            if report["blank"]:
+                detail.append(f"blank: {', '.join(report['blank'][:10])}")
+            message = (
+                f"{len(report['missing']) + len(report['blank'])} of {report['questions']} "
+                f"questions have no usable rationale ({'; '.join(detail)}).\n"
+                "  Retrieval would silently use the raw question for those, which is the "
+                "paper's MedCPT baseline row -- not RAG2 -- and the run would report a "
+                "mixture of two conditions under one name.\n"
+                "  Fix: re-run scripts/01_generate_rationales.py for the missing qids, or "
+                "pass --allow-incomplete-rationales to accept the degradation knowingly.")
+            if not args.allow_incomplete_rationales:
+                parser.error(message)
+            print(f"WARNING (--allow-incomplete-rationales): {message}")
+        write_json(os.path.join(output_dir, "rationale_coverage.json"), report)
     else:
         llm = build_llm(config.llm)
         print(f"llm {llm.describe()}")

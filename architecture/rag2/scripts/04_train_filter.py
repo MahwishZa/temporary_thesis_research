@@ -30,6 +30,7 @@ from rag2.filter_training.train import (
     add_label_tokens,
     build_train_command,
     evaluate_filter_checkpoint,
+    is_loadable_checkpoint,
     run_command,
 )
 
@@ -78,6 +79,11 @@ def main() -> int:
         )
 
     filter_dir = args.filter_output_dir or os.path.join(output_dir, "filter")
+    # run_classifier.py opens <output_dir>/logs.log through logging.basicConfig
+    # before it creates the directory, so an absent output directory kills the
+    # run with FileNotFoundError before training starts. Creating it here fixes
+    # that without editing the authors' script.
+    os.makedirs(filter_dir, exist_ok=True)
     command = build_train_command(
         model_name_or_path=model,
         train_file=os.path.abspath(args.train_file),
@@ -100,13 +106,38 @@ def main() -> int:
         with open(args.validation_file, "r", encoding="utf-8") as handle:
             records = json.load(handle)
         # The paper selects "a few candidate models from the validation set"
-        # without stating a rule; we score every epoch checkpoint and take the
+        # without stating a rule; we score every LOADABLE checkpoint and take the
         # best filter accuracy (filter_training.select_by).
-        checkpoints = sorted(
+        #
+        # Only directories that are real HuggingFace model folders can be scored.
+        # run_classifier.py writes two different things under filter_dir:
+        #   epoch_N/    accelerator.save_state -> optimizer + scheduler + RNG +
+        #               weights, but NO config.json and NO tokenizer
+        #   filter_dir/ save_pretrained + tokenizer.save_pretrained, rewritten
+        #               every epoch, so it holds the LAST epoch's model
+        # RAG2PerplexityFilter loads with AutoTokenizer/AutoModelForSeq2SeqLM, so
+        # an epoch_N/ state directory can never load. Previously each one raised
+        # and was swallowed by the except below, leaving the final checkpoint as
+        # the only survivor while the run still reported a "selection".
+        # Filter them out explicitly and say so, so the recorded selection
+        # describes what was actually compared.
+        candidates = sorted(
             os.path.join(filter_dir, name)
             for name in os.listdir(filter_dir)
             if name.startswith("epoch_")
         ) + [filter_dir]
+        checkpoints = [c for c in candidates if is_loadable_checkpoint(c)]
+        skipped = [c for c in candidates if c not in checkpoints]
+        if skipped:
+            print(f"  {len(skipped)} training-state director(ies) are not loadable "
+                  "HuggingFace checkpoints and were not scored "
+                  f"(no config.json): {', '.join(os.path.basename(s) for s in skipped)}")
+        if not checkpoints:
+            print("  no loadable checkpoint to select from; training may have failed")
+            return 1
+        if len(checkpoints) == 1:
+            print(f"  only one loadable checkpoint ({os.path.basename(checkpoints[0])}); "
+                  "selection has nothing to choose between -- it is the final epoch")
         scores = []
         for checkpoint in checkpoints:
             try:
@@ -115,7 +146,12 @@ def main() -> int:
                 print(f"skipping {checkpoint}: {error}")
         if scores:
             scores.sort(key=lambda s: s["final_acc_score"], reverse=True)
-            write_json(os.path.join(output_dir, "filter_checkpoint_selection.json"), scores)
+            write_json(os.path.join(output_dir, "filter_checkpoint_selection.json"), {
+                "scored": scores,
+                "not_loadable": skipped,
+                "selected": scores[0]["checkpoint"],
+                "candidates_compared": len(scores),
+            })
             print(f"best checkpoint: {scores[0]['checkpoint']} ({scores[0]['final_acc_score']:.2f}%)")
     return 0
 

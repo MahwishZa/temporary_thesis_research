@@ -154,7 +154,11 @@ def test_train_command_carries_the_papers_hyperparameters():
         "base", "train.json", "out", FilterTrainingConfig(), seed=42
     )
     text = " ".join(command)
-    assert "classifier/run_classifier.py" in text  # the authors' own script
+    # CLASSIFIER_SCRIPT is built with os.path.join, so the separator is "\" on
+    # Windows and "/" elsewhere. Both name the same script; normalise the
+    # separator rather than relax what is asserted, so this still pins the exact
+    # path to the authors' own script on either platform.
+    assert "classifier/run_classifier.py" in text.replace(os.sep, "/")
     assert "--learning_rate 3e-05" in text
     assert "--num_train_epochs 40" in text
     assert "--per_device_train_batch_size 16" in text
@@ -180,3 +184,71 @@ def test_eval_command_uses_the_release_eval_mode():
     text = " ".join(build_eval_command("ckpt", "val.json", "out", FilterTrainingConfig()))
     assert "--do_eval" in text
     assert "--per_device_eval_batch_size 16" in text
+
+
+class TestLoadableCheckpointDiscrimination:
+    """Tell a HuggingFace model directory from an accelerate training-state one.
+
+    run_classifier.py writes BOTH under the filter output dir: `epoch_N/` via
+    accelerator.save_state (optimizer + scheduler + RNG + weights, no
+    config.json, no tokenizer) and the output dir itself via save_pretrained +
+    tokenizer.save_pretrained. Only the latter can be loaded by
+    RAG2PerplexityFilter. Checkpoint selection used to try every `epoch_N/`,
+    have each one raise, swallow the exception, and report a "selection" that
+    had in fact compared exactly one candidate.
+    """
+
+    @staticmethod
+    def _hf_dir(root, name):
+        d = root / name
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "config.json").write_text('{"model_type": "t5"}', encoding="utf-8")
+        (d / "model.safetensors").write_bytes(b"\x00" * 32)
+        (d / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+        return d
+
+    @staticmethod
+    def _save_state_dir(root, name):
+        """What accelerator.save_state actually writes: no config.json."""
+        d = root / name
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "model.safetensors").write_bytes(b"\x00" * 32)
+        (d / "optimizer.bin").write_bytes(b"\x00" * 32)
+        (d / "scheduler.bin").write_bytes(b"\x00" * 16)
+        (d / "random_states_0.pkl").write_bytes(b"\x00" * 8)
+        return d
+
+    def test_save_state_directory_is_not_loadable(self, tmp_path):
+        from rag2.filter_training.train import is_loadable_checkpoint
+
+        assert not is_loadable_checkpoint(str(self._save_state_dir(tmp_path, "epoch_0")))
+
+    def test_save_pretrained_directory_is_loadable(self, tmp_path):
+        from rag2.filter_training.train import is_loadable_checkpoint
+
+        assert is_loadable_checkpoint(str(self._hf_dir(tmp_path, "filter")))
+
+    def test_missing_path_is_not_loadable(self, tmp_path):
+        from rag2.filter_training.train import is_loadable_checkpoint
+
+        assert not is_loadable_checkpoint(str(tmp_path / "does-not-exist"))
+
+    def test_only_the_final_checkpoint_survives_a_real_training_layout(self, tmp_path):
+        """The regression: 40 epoch_N state dirs + one real checkpoint."""
+        from rag2.filter_training.train import is_loadable_checkpoint
+
+        filter_dir = tmp_path / "filter-thesis"
+        for epoch in range(40):
+            self._save_state_dir(filter_dir, f"epoch_{epoch}")
+        self._hf_dir(tmp_path, "filter-thesis")  # save_pretrained into filter_dir
+
+        candidates = sorted(
+            str(filter_dir / n) for n in os.listdir(filter_dir)
+            if n.startswith("epoch_")
+        ) + [str(filter_dir)]
+        loadable = [c for c in candidates if is_loadable_checkpoint(c)]
+
+        assert len(candidates) == 41, "fixture should offer 40 epochs + the final dir"
+        assert loadable == [str(filter_dir)], (
+            "only the save_pretrained directory may be treated as a checkpoint; "
+            f"got {loadable}")

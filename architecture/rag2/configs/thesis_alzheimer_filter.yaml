@@ -1,0 +1,115 @@
+# Training the RAG2 evidence filter on the Alzheimer-specific dataset.
+#
+# Used by architecture/rag2/scripts/04_train_filter.py after the dataset has been
+# built by scripts/03b_build_alzheimer_filter_labels.py. It is a *training-stage*
+# config: retrieval and generation are not read from here (the comparison takes
+# those from experiments/configs/preliminary_experiment.yaml).
+#
+# THIS IS NOT AN EXACT REPRODUCTION OF THE PAPER'S FILTER, and no artifact
+# produced from it may be described as one. Two deliberate departures, both
+# forced and both recorded in the run manifest:
+#
+#   1. base model  google/flan-t5-small (77M) instead of flan-t5-large (770M)
+#   2. epochs      8 instead of 40
+#
+# --------------------------------------------------------------------------
+# Why flan-t5-small: the 4 GB memory budget, in full
+# --------------------------------------------------------------------------
+# classifier/run_classifier.py is the authors' script and is kept unmodified, so
+# the optimizer is AdamW in fp32 (line 528). Full fine-tuning then costs, per
+# parameter, 4 bytes of weights + 4 of gradient + 8 of Adam moments = 16 bytes,
+# before any activation:
+#
+#     flan-t5-large   770M x 16 B = 12.3 GB   -- 3x the card
+#     flan-t5-base    248M x 16 B =  4.0 GB   -- exceeds it before activations
+#     flan-t5-small    77M x 16 B =  1.2 GB   -- fits, leaving room to compute
+#
+# Mixed precision does not rescue base: fp16 through accelerate keeps fp32
+# master weights and fp32 optimizer state, so peak memory rises. Gradient
+# accumulation reduces activation memory only, never optimizer state. The two
+# techniques that would fit flan-t5-large on this card -- LoRA/PEFT, or 8-bit
+# Adam -- both require editing the authors' training script, which this
+# repository deliberately does not do.
+#
+# Effective batch size is preserved at the paper's 16 (4 x 4 accumulation), so
+# the optimisation trajectory differs from the paper in model capacity and
+# schedule length, not in batch statistics.
+#
+# --------------------------------------------------------------------------
+# Why 8 epochs
+# --------------------------------------------------------------------------
+# Chosen a priori, before any validation number was looked at. 1,971 training
+# examples at effective batch 16 is ~123 optimizer steps per epoch, so 8 epochs
+# is ~984 steps -- a normal fine-tuning budget for a 77M seq2seq model on a
+# dataset this size, where the paper's 40 epochs would mostly memorise it.
+#
+# Per-epoch checkpoint selection is NOT available: run_classifier.py writes
+# per-epoch directories with accelerator.save_state, which contain no
+# config.json and cannot be loaded by AutoModelForSeq2SeqLM. The final
+# --output_dir is the only loadable checkpoint (see the note in
+# scripts/04_train_filter.py). --select therefore scores exactly one checkpoint
+# and says so. To choose an epoch count on evidence rather than by assumption,
+# train more than once with different --num_train_epochs and compare the
+# reported validation accuracy; that is selection on the VALIDATION split of the
+# training dataset, never on the 30 evaluation questions.
+
+experiment:
+  name: rag2-filter-alzheimer
+  notes: >-
+    RAG2 evidence filter adapted on an Alzheimer-specific, corpus-grounded,
+    weakly supervised training set. Reduced model and schedule for a 4 GB
+    RTX 2050. Not an exact reproduction of the paper's filter.
+  seed: 42
+  output_dir: runs
+
+# The filter this trains, and how it is loaded back at inference.
+filter:
+  kind: rag2_perplexity
+  # DEPARTURE FROM THE PAPER (section 4.2 uses flan-t5-large). See above.
+  base_model: google/flan-t5-small
+  checkpoint: ""            # filled in by training; the comparison requires it
+  max_seq_length: 512       # [S] unchanged
+  doc_stride: 128           # [S] unchanged
+  overflow: truncate
+  batch_size: 8             # inference batch; 4 GB card
+  device: auto
+  on_empty: no_evidence
+
+filter_training:
+  # -- unchanged from the paper --
+  learning_rate: 3.0e-5             # [S] appendix A.3
+  max_seq_length: 512               # [S]
+  doc_stride: 128                   # [S]
+  max_answer_length: 30             # [S] script default
+  weight_decay: 0.0                 # [S] script default
+  lr_scheduler_type: linear         # [S] script default
+  num_warmup_steps: 0               # [S] script default
+  checkpointing_steps: epoch        # [S]
+  select_by: val_accuracy
+
+  # -- reduced for the 4 GB card; effective batch preserved at the paper's 16 --
+  num_train_epochs: 8               # DEPARTURE (paper: 40)
+  per_device_train_batch_size: 4    # DEPARTURE (paper: 16 in one device step)
+  gradient_accumulation_steps: 4    # 4 x 4 = 16, the paper's effective batch
+  per_device_eval_batch_size: 8
+
+  # -- labelling parameters are inert on this route --
+  # The Alzheimer dataset is built by scripts/03b_build_alzheimer_filter_labels.py
+  # from corpus structure, not by the paper's Delta-PPL procedure, so tau and the
+  # perplexity settings below are not consulted. They are left at their
+  # documented values so that switching back to 03_build_filter_labels.py for
+  # MedQA/MedMCQA needs no edit here.
+  tau_percentile: 25.0
+  tau_scope: global
+  ppl_target: rationale
+  ppl_rationale: no_retrieval
+  label_top_k: 10
+  drop_undecided: true
+
+# Present only because Config requires the block; no LLM is used on this route.
+# Dataset construction uses no model at all, and training uses flan-t5-small
+# through the authors' script.
+llm:
+  backend: stub
+  model: none
+  temperature: 0.0

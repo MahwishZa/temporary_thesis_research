@@ -84,3 +84,14 @@ models--*/
 # Regenerable from the two scripts in experiments/scripts/; the question set and the
 # configuration ARE committed, the run products are not.
 experiments/runs/
+
+# filelock artifacts. `datasets` takes a lock beside the working directory when
+# run_classifier.py loads the training JSON, so filter training drops a .lock in
+# architecture/rag2/ on every run. Empty, transient, never a deliverable.
+*.lock
+
+# TRANSFORMERS_CACHE is set to os.path.dirname(os.getcwd()) + '/cache' at the top
+# of classifier/run_classifier.py (line 27, the authors' code, kept unmodified),
+# which resolves to architecture/cache when filter training runs from
+# architecture/rag2. Model weights, not source.
+architecture/cache/

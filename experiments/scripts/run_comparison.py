@@ -39,8 +39,8 @@ import scaf  # noqa: E402,F401  (registers the scaf filter)
 from rag2.config import FilterConfig  # noqa: E402
 from rag2.filtering.base import build_filter  # noqa: E402
 from scaf.compare import (  # noqa: E402
-    build_manifest, checkpoint_identity, components_actually_computed, run_arm,
-    scientific_report,
+    build_manifest, checkpoint_identity, components_actually_computed,
+    paired_comparison, run_arm, scientific_report,
 )
 from scaf.frozen import load, read_meta  # noqa: E402
 from scaf.generation import (  # noqa: E402
@@ -234,6 +234,7 @@ def main(argv=None) -> int:
     }
 
     manifest = build_manifest(frozen_sets, arm_a, arm_b, config)
+    manifest["paired"] = paired_comparison(arm_a, arm_b)
     manifest["scientific"] = scientific_report(config, frozen_sets, rag2_filter, scaf_filter)
     manifest["scaf_components"] = components_actually_computed(arm_b)
     manifest["reportable"] = bool(
@@ -257,6 +258,14 @@ def main(argv=None) -> int:
 
     with (args.out / "manifest.json").open("w", encoding="utf-8", newline="\n") as fh:
         json.dump(manifest, fh, indent=2, sort_keys=True, default=str)
+        fh.write("\n")
+
+    # The paired view: both arms saw the same candidates for the same question,
+    # so the per-question difference isolates the admission policy. Written
+    # separately as well as into the manifest because it is what the write-up
+    # quotes.
+    with (args.out / "paired_comparison.json").open("w", encoding="utf-8", newline="\n") as fh:
+        json.dump(manifest["paired"], fh, indent=2, sort_keys=True, default=str)
         fh.write("\n")
 
     fairness = manifest["fairness"]
@@ -294,7 +303,27 @@ def main(argv=None) -> int:
         print(f"  admission rate       {summary['admission_rate']:.3f}")
         print(f"  no-evidence / abstain {summary['questions_with_no_evidence']} / {summary['abstentions']}")
 
-    print(f"\nWritten to {args.out}/  (per_question.jsonl, manifest.json)")
+    paired = manifest["paired"]
+    overlap = paired["selected_evidence_overlap"]
+    print("\nPAIRED (same candidates, same question -- difference is the policy)")
+    print(f"  candidates/question  mean {paired['candidates_per_question']['mean']}, "
+          f"median {paired['candidates_per_question']['median']}, "
+          f"total {paired['total_candidate_chunks']}")
+    print(f"  rag2 admitted        mean {paired['rag2_admitted']['mean']}, "
+          f"median {paired['rag2_admitted']['median']}, "
+          f"min {paired['rag2_admitted']['min']}, max {paired['rag2_admitted']['max']}")
+    print(f"  scaf admitted        mean {paired['scaf_admitted']['mean']}, "
+          f"median {paired['scaf_admitted']['median']}, "
+          f"min {paired['scaf_admitted']['min']}, max {paired['scaf_admitted']['max']}")
+    print(f"  admits more          rag2 {paired['questions_rag2_admits_more']} / "
+          f"scaf {paired['questions_scaf_admits_more']} / tied {paired['questions_tied']}")
+    print(f"  mean paired diff     {paired['paired_difference']['mean']} "
+          f"(|diff| {paired['paired_difference']['mean_absolute']})")
+    print(f"  evidence overlap     mean jaccard {overlap['mean_jaccard']} over "
+          f"{overlap['measurable_questions']} questions")
+
+    print(f"\nWritten to {args.out}/  (per_question.jsonl, manifest.json, "
+          f"paired_comparison.json)")
     print("PRELIMINARY / DEVELOPMENT RESULTS")
     return 0
 

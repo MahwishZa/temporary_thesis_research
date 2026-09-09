@@ -40,9 +40,12 @@ corpus:
   index_dir: indexes/production
   index_encoder: ncbi/MedCPT-Article-Encoder
   index_dim: 768
-  # ENVIRONMENT-SPECIFIC: these are properties of the machine holding the index.
-  # Left blank deliberately -- a fabricated digest is worse than a missing one.
-  index_digest: ""          # fill from indexes/production/index_meta.json content_digest
+  # ENVIRONMENT-SPECIFIC: a property of the machine holding the index. Recorded
+  # only after verify_index.py reported 16/16 on 2026-09-09 and recomputed this
+  # digest from the vectors themselves -- it is a checked claim, not a copied one.
+  # 773,183 vectors = 781,563 chunks - 8,380 flagged duplicates, row-aligned to
+  # the manifest. Any future run whose index digest differs is a different index.
+  index_digest: "2ab50a1212681abd28f4f250d49f076c36f57d1b3a77ce5aaac093adde770937"
   index_verified_by: "python preprocessing/pmc/verify_index.py"   # must report 16/16
 
 # --- upstream: retrieval and reranking (frozen once, shared by both arms) ---
@@ -65,6 +68,15 @@ retrieval:
 # --- ARM A: the original RAG2 admission policy -----------------------------
 arm_a:
   filter: rag2_perplexity           # MUST NOT be passthrough for a reported run
+  # These are the PAPER's values and are kept as the reference target. The
+  # thesis run on a 4 GB RTX 2050 uses the Alzheimer route instead
+  # (architecture/rag2/configs/thesis_alzheimer_filter.yaml: flan-t5-small,
+  # 8 epochs, corpus-derived weakly supervised labels). If you run that route,
+  # set base_model and checkpoint below to what you actually trained, so this
+  # file does not describe a run that did not happen. Neither field is read by
+  # the runner -- it records arm_a_checkpoint_identity from the checkpoint on
+  # disk -- so an unedited base_model misleads a reader without failing a check.
+  # See docs/runbooks/windows_experiment_runbook.md sections 4A/5A/6A.
   base_model: google/flan-t5-large  # paper 4.2, 770M
   # ENVIRONMENT-SPECIFIC: produced by
   # architecture/rag2/scripts/04_train_filter.py --select.

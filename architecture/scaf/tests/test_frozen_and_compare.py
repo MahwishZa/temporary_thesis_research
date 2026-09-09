@@ -475,3 +475,109 @@ class TestComponentsActuallyComputed:
         for key in ("sigma_support", "gamma_currency", "scaf_score"):
             assert out[key]["n"] == 12
         assert out["gamma_currency"]["varies"], "currency must respond to the dates"
+
+
+class TestPairedComparison:
+    """The paired view of the two arms over one frozen candidate set.
+
+    Both arms saw the same candidates for the same question, so the difference
+    per question is the admission policy and nothing else. These tests pin what
+    that report may and may not claim.
+    """
+
+    @staticmethod
+    def _arms(a_admitted, b_admitted, candidates=("c0", "c1", "c2", "c3")):
+        arm_a, arm_b = [], []
+        for i, (keep_a, keep_b) in enumerate(zip(a_admitted, b_admitted)):
+            qid = f"q{i}"
+            arm_a.append(ArmResult(qid=qid, arm="rag2", admitted_chunk_ids=list(keep_a),
+                                   rejected_chunk_ids=[c for c in candidates if c not in keep_a]))
+            arm_b.append(ArmResult(qid=qid, arm="scaf", admitted_chunk_ids=list(keep_b),
+                                   rejected_chunk_ids=[c for c in candidates if c not in keep_b]))
+        return arm_a, arm_b
+
+    def test_counts_who_admits_more_per_question(self):
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms(
+            [("c0", "c1", "c2"), ("c0",), ("c0", "c1")],
+            [("c0",), ("c0", "c1", "c2"), ("c0", "c1")])
+        out = paired_comparison(arm_a, arm_b)
+        assert out["questions_rag2_admits_more"] == 1
+        assert out["questions_scaf_admits_more"] == 1
+        assert out["questions_tied"] == 1
+        assert out["questions_compared"] == 3
+
+    def test_reports_median_min_and_max_not_only_the_mean(self):
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms(
+            [("c0",), ("c0", "c1"), ("c0", "c1", "c2", "c3")], [(), (), ()])
+        out = paired_comparison(arm_a, arm_b)
+        assert out["rag2_admitted"] == {"n": 3, "mean": 2.333, "median": 2.0, "min": 1, "max": 4}
+        assert out["rag2_total_admitted"] == 7
+        assert out["rag2_admission_rate"] == round(7 / 12, 6)
+
+    def test_paired_difference_is_signed_and_also_absolute(self):
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms([("c0", "c1"), ()], [(), ("c0", "c1")])
+        out = paired_comparison(arm_a, arm_b)
+        assert out["paired_difference"]["mean"] == 0.0       # +2 and -2 cancel
+        assert out["paired_difference"]["mean_absolute"] == 2.0
+
+    def test_overlap_distinguishes_same_count_from_same_evidence(self):
+        """Two arms can admit equal numbers and share nothing."""
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms([("c0", "c1")], [("c2", "c3")])
+        out = paired_comparison(arm_a, arm_b)
+        assert out["questions_tied"] == 1
+        assert out["selected_evidence_overlap"]["mean_jaccard"] == 0.0
+        assert out["selected_evidence_overlap"]["disjoint_selections"] == 1
+
+    def test_identical_selection_scores_one(self):
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms([("c0", "c1")], [("c1", "c0")])
+        out = paired_comparison(arm_a, arm_b)
+        assert out["selected_evidence_overlap"]["mean_jaccard"] == 1.0
+        assert out["selected_evidence_overlap"]["identical_selections"] == 1
+
+    def test_a_question_both_arms_reject_has_no_overlap_rather_than_zero(self):
+        """Undefined is not 0.0: counting it would drag the mean down for free."""
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms([("c0",), ()], [("c0",), ()])
+        out = paired_comparison(arm_a, arm_b)
+        overlap = out["selected_evidence_overlap"]
+        assert overlap["measurable_questions"] == 1
+        assert overlap["unmeasurable_questions"] == 1
+        assert overlap["mean_jaccard"] == 1.0
+        assert out["per_question"][1]["jaccard"] is None
+        assert out["per_question"][1]["both_empty"] is True
+
+    def test_a_failed_question_is_excluded_from_the_pairing(self):
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms([("c0",), ("c1",)], [("c0",), ("c1",)])
+        arm_b[1].error = "filter raised"
+        out = paired_comparison(arm_a, arm_b)
+        assert out["questions_compared"] == 1
+
+    def test_per_question_rows_name_the_evidence_each_arm_admitted_alone(self):
+        from scaf.compare import paired_comparison
+        arm_a, arm_b = self._arms([("c0", "c1")], [("c1", "c2")])
+        row = paired_comparison(arm_a, arm_b)["per_question"][0]
+        assert row["rag2_only"] == ["c0"]
+        assert row["scaf_only"] == ["c2"]
+        assert row["intersection"] == 1 and row["union"] == 3
+        assert row["jaccard"] == round(1 / 3, 4)
+
+    def test_real_arms_produce_a_consistent_paired_report(self):
+        from rag2.filtering.passthrough import PassthroughFilter
+        from scaf.compare import paired_comparison, summarise
+        frozen = [make_set("q1", n=6), make_set("q2", n=6)]
+        scaf_filter = SCAFFilter(FilterConfig(kind="scaf", options={
+            "document_frequency": {"amyloid": 50, "evidence": 900}, "corpus_size": 1000}))
+        arm_a = run_arm("rag2", PassthroughFilter(), frozen)
+        arm_b = run_arm("scaf", scaf_filter, frozen)
+        out = paired_comparison(arm_a, arm_b)
+        assert out["questions_compared"] == 2
+        assert out["total_candidate_chunks"] == 12
+        assert out["rag2_total_admitted"] == summarise(arm_a)["total_admitted"]
+        assert out["scaf_total_admitted"] == summarise(arm_b)["total_admitted"]
+        assert out["rag2_admission_rate"] == 1.0    # passthrough keeps everything

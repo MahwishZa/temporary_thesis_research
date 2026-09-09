@@ -151,6 +151,22 @@ def run_command(command: Sequence[str], cwd: Optional[str] = None) -> int:
     return subprocess.call(list(command), cwd=cwd)
 
 
+def is_loadable_checkpoint(path: str) -> bool:
+    """Can ``AutoModelForSeq2SeqLM.from_pretrained`` load this directory?
+
+    ``run_classifier.py`` writes per-epoch directories with
+    ``accelerator.save_state``, which stores optimizer, scheduler, RNG state and
+    weights but **no** ``config.json`` and no tokenizer. Those are training
+    state, not model checkpoints, and the filter cannot load them. The final
+    ``--output_dir`` gets ``save_pretrained`` + ``tokenizer.save_pretrained``
+    instead, so it is loadable.
+
+    ``config.json`` is the cheap discriminator: ``from_pretrained`` requires it,
+    and ``save_state`` never writes one.
+    """
+    return os.path.isdir(path) and os.path.isfile(os.path.join(path, "config.json"))
+
+
 def evaluate_filter_checkpoint(
     checkpoint: str,
     records: Sequence[Dict[str, str]],
