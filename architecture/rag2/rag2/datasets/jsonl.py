@@ -136,7 +136,12 @@ class JsonQADataset(QADataset):
             return list(self._cache)
         questions: List[Question] = []
         for i, record in enumerate(read_records(self._path)):
-            options = normalise_options(record[self.fields["options"]])
+            # ``.get`` with a default, not ``[...]``: an open-ended QA set has no
+            # options at all. normalise_options({}) is {} and normalise_answer
+            # already returns None for a missing answer, so both paths below are
+            # already correct for that case -- only the lookup was not.
+            # Datasets that DO carry options are unaffected.
+            options = normalise_options(record.get(self.fields["options"], {}))
             answer_key = self.fields["answer"]
             answer = normalise_answer(record.get(answer_key), options, self.answer_style)
             qid = str(record.get(self.fields["qid"], i))

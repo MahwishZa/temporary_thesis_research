@@ -109,8 +109,13 @@ This generates a rationale per question with the backbone LLM, encodes it with
 with `ncbi/MedCPT-Cross-Encoder`, and writes a candidate cache under
 `cache/candidates/`. Note the path it prints.
 
-Point `dataset.path` in `architecture/rag2/configs/thesis_corpus.yaml` at your question set
-first — `data/datasets/thesis_questions/dev_questions.jsonl` holds the 30 fixed Alzheimer questions.
+`dataset` is already wired in `architecture/rag2/configs/thesis_corpus.yaml` to
+the committed 30-question set at
+`data/datasets/thesis_questions/dev_questions.jsonl`, including the `fields.qid`
+map. Do not drop that map: this set keys on `qid`, the loader defaults to `id`,
+and without it every question is silently renamed `0`..`29` — which breaks the
+join to the frozen candidates, since SCAF and the comparison runner match on
+`qid`.
 
 ---
 
@@ -158,14 +163,20 @@ python architecture\rag2\scripts\04_train_filter.py -c architecture\rag2\configs
 python architecture\rag2\scripts\04_train_filter.py -c architecture\rag2\configs\thesis_corpus.yaml ^
     --model runs\filter-base ^
     --train-file runs\<...>\filter_train.json ^
-    --validation-file runs\<...>\filter_val.json ^
-    --filter-output-dir runs\filter-medqa ^
-    --select
+    --filter-output-dir runs\filter-medqa
 ```
 
 `--init-tokens` adds `[HELPFUL]` / `[NOT_HELPFUL]` as single tokens and resizes
-the embedding matrix. `--select` picks the epoch with the best validation
-accuracy and records every epoch's score.
+the embedding matrix.
+
+**On `--select`.** Step 4 writes `filter_train.json` and **no validation split**,
+so there is no `filter_val.json` to point at — an earlier version of this runbook
+told you to pass one. `--select` scores each epoch and keeps the best by
+validation accuracy; without a validation file it used to be skipped silently,
+leaving the last epoch while the run still claimed selection. It now refuses
+instead. For the first result, omit it: the final epoch is a legitimate
+checkpoint, and the run record says so. Add `--select --validation-file <held-out
+labels>` later if you hold a split out of `filter_train.json`.
 
 Check the argv before spending GPU hours — `--dry-run` prints the exact
 `run_classifier.py` command without executing it:
