@@ -154,7 +154,11 @@ def test_train_command_carries_the_papers_hyperparameters():
         "base", "train.json", "out", FilterTrainingConfig(), seed=42
     )
     text = " ".join(command)
-    assert "classifier/run_classifier.py" in text  # the authors' own script
+    # CLASSIFIER_SCRIPT is built with os.path.join, so the separator is "\" on
+    # Windows and "/" elsewhere. Both name the same script; normalise the
+    # separator rather than relax what is asserted, so this still pins the exact
+    # path to the authors' own script on either platform.
+    assert "classifier/run_classifier.py" in text.replace(os.sep, "/")
     assert "--learning_rate 3e-05" in text
     assert "--num_train_epochs 40" in text
     assert "--per_device_train_batch_size 16" in text
