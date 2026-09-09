@@ -71,6 +71,17 @@ dependencies:
   - zlib=1.2.13=h5eee18b_0
   - pip:
       # --- classifier training (added on top of the retriever deps) ---
+      # THE ONE UNPINNED PACKAGE IN THIS FILE, and the reproducibility hole in it.
+      # Everything else here carries an exact version; this does not, so pip
+      # resolves it to whatever is current. Resolved today that is accelerate 1.x,
+      # which deleted Accelerator.use_fp16 in 1.0.0 --
+      # classifier/run_classifier.py:499 reads it, so filter training dies with
+      # AttributeError before the first step. The authors' own runs predate 1.0
+      # and were unaffected.
+      # Do not "fix" this line by editing run_classifier.py: it is their script,
+      # kept unmodified, and use_fp16 only selects pad_to_multiple_of=8, so it
+      # changes nothing about the results. Install accelerate>=0.26,<1.0 from
+      # requirements.txt, which carries the bound and the reasoning.
       - accelerate
       # --- shared dependencies ---
       - aiohttp==3.9.1

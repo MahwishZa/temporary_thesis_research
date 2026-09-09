@@ -34,9 +34,48 @@ pip install -r architecture\rag2\requirements.txt
 python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
-`nltk` matters: `architecture/rag2/classifier/run_classifier.py` imports it at module level and
-calls `nltk.data.find("tokenizers/punkt")` at startup, so filter training fails
-immediately without it. Its first run downloads `punkt` and needs network access.
+**On CPython 3.12, pin this set explicitly.** The authors ran 3.10.13, and three
+of their pins (numpy 1.24.3, safetensors 0.4.0, sentencepiece 0.1.99) have no
+3.12 wheel at all, so their environment cannot be reproduced exactly there. This
+set installs on Windows/3.12 and the whole filter-training path was run end to
+end on it:
+
+```
+pip install "transformers==4.36.2" "datasets==2.15.0" "accelerate==0.34.2" ^
+    "huggingface_hub==0.25.2" "safetensors==0.4.3" "tokenizers==0.15.2" ^
+    "numpy==1.26.4" "nltk==3.8.1" "sentencepiece==0.2.0"
+```
+
+Keep the CUDA torch you already have; do not reinstall it.
+
+**The two upper bounds are the ones that matter.**
+`classifier/run_classifier.py` is the authors' script, kept unmodified, and uses
+two APIs later majors deleted: `accelerator.use_fp16` (line 499, removed in
+**accelerate 1.0.0**) and `huggingface_hub.Repository` (line 46, removed in
+**hub 1.0.0**). Install either as a 1.x and training dies — the first with
+`AttributeError: 'Accelerator' object has no attribute 'use_fp16'` before the
+first step, the second at import. accelerate 0.34.2 is the last release that
+still has `use_fp16`. Note also that accelerate 0.34.2 requires
+`huggingface_hub>=0.21`, so `environment.yml`'s 0.20.3 cannot be used with it.
+
+`nltk` matters at import: `run_classifier.py` imports it at module level, so
+training fails immediately without the package. It then calls
+`nltk.data.find("tokenizers/punkt")` and downloads `punkt` if that misses — but
+`punkt` is never used anywhere in the script, so a failed download is harmless
+and training continues. An earlier version of this runbook said the download was
+required; it is not.
+
+**Precision is fp32.** `Accelerator()` is constructed with
+`gradient_accumulation_steps` only and `mixed_precision` is never set, so
+`use_fp16` is `False` and its sole effect is `pad_to_multiple_of=8` on the
+collator. Confirm no stored config overrides this:
+
+```
+accelerate env
+```
+
+Expect `mixed precision: no`. If it says `fp16`, run `accelerate config` and set
+it back — otherwise you would train in a precision the config does not document.
 
 **4 GB VRAM (RTX 2050) note.** Only steps 1 and 3 run on this card. Corrected
 2026-09-08 after checking each stage against the model it actually loads; the
@@ -238,6 +277,30 @@ python architecture\rag2\scripts\04_train_filter.py -c architecture\rag2\configs
 
 Add `--dry-run` to the second command first if you want to see the exact
 `run_classifier.py` argv before it runs.
+
+### 5A(0). One-minute smoke test — run this before the 8 epochs
+
+Exercises every API the real run touches, on your GPU, on a 96-example slice.
+If it completes, the full run will not hit a dependency or API error; a
+compatibility failure shows up here in about a minute instead of part-way
+through training.
+
+```
+cd architecture\rag2
+python -c "import json; d='../../experiments/results/rag2_vs_scaf_alzheimer/training_dataset'; json.dump(json.load(open(d+'/train.json'))[:96], open('runs/_smoke_train.json','w')); json.dump(json.load(open(d+'/validation.json'))[:48], open('runs/_smoke_val.json','w'))"
+
+python scripts\04_train_filter.py -c configs\thesis_alzheimer_filter.yaml ^
+    --model runs\filter-alz-base ^
+    --train-file runs\_smoke_train.json --validation-file runs\_smoke_val.json ^
+    --filter-output-dir runs\_smoke_filter --select ^
+    -o filter_training.num_train_epochs=1
+
+rmdir /s /q runs\_smoke_filter & del runs\_smoke_train.json runs\_smoke_val.json
+```
+
+Expect it to end with `best checkpoint: ...`. The smoke model is trained on 96
+examples for one epoch and its accuracy means nothing — only that the pipeline
+runs. Delete it; it is not a candidate for the experiment.
 
 `configs/thesis_alzheimer_filter.yaml` carries the memory arithmetic in full;
 the short version is that AdamW in fp32 costs 16 bytes per parameter before

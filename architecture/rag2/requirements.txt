@@ -8,26 +8,80 @@
 
 # --- core: config, schema, caching, labeling, evaluation, tests -------------
 PyYAML>=6.0
-numpy>=1.24
+# UPPER BOUND: numpy 2.0 removed np.float_/np.unicode_ and changed the scalar
+# repr. transformers 4.36.2 and datasets 2.15.0 both predate it.
+numpy>=1.24,<2
 
 # --- models: rationale generation, filtering, MedCPT encoding/reranking -----
 # Pinned to the release's versions; newer ones generally work but change results.
-torch==2.1.0
+# torch is installed SEPARATELY, from the CUDA index URL, BEFORE this file --
+# see docs/runbooks/windows_experiment_runbook.md section 0. It is a floor here,
+# not a pin, for two reasons: pinning the authors' 2.1.0 would replace a working
+# CUDA build with the default (CPU) wheel, and 2.1.0 has no CPython 3.12 wheel at
+# all (3.12 support arrived in torch 2.2.0), so `pip install -r requirements.txt`
+# would simply fail there. The authors used 2.1.0+cu121; 2.4.1+cu121 is the
+# verified version for this thesis' runs.
+torch>=2.1
 transformers==4.36.2
 datasets==2.15.0
-accelerate>=0.26
-sentencepiece==0.1.99
+# UPPER BOUNDS ARE LOAD-BEARING. classifier/run_classifier.py is the authors'
+# script, kept unmodified, and it uses two APIs that later majors deleted:
+#   line 499  accelerator.use_fp16      removed in accelerate 1.0.0
+#   line  46  huggingface_hub.Repository  removed in huggingface_hub 1.0.0
+# Without these bounds pip resolves both to a 1.x and training dies -- the first
+# with AttributeError before the first step, the second at import. 0.34.2 is the
+# last accelerate release that still carries use_fp16.
+#
+# The floor on huggingface_hub is set by accelerate, not by us: accelerate 0.34.2
+# requires huggingface_hub>=0.21, so environment.yml's 0.20.3 cannot be used
+# alongside it. Repository exists throughout 0.x, so any 0.21-0.99 is fine.
+accelerate>=0.26,<1.0
+huggingface_hub>=0.21,<1.0
+# 0.1.99 is the authors' pin and has no CPython 3.12 wheel (source build only);
+# 0.2.0 is the first release that ships one.
+sentencepiece>=0.1.99
 # classifier/run_classifier.py imports nltk at module level and calls
 # nltk.data.find("tokenizers/punkt") at startup, so filter training fails
-# immediately without it. Pinned to the authors' environment.yml value. The
-# first run downloads the punkt data and therefore needs network access.
+# immediately without it. Pinned to the authors' environment.yml value.
+# It also calls nltk.download("punkt", quiet=True) when that lookup fails, so the
+# first run reaches the network -- but `punkt` is never actually used anywhere in
+# the script, so a failed download is harmless and training continues. (An
+# earlier note here and in the Windows runbook said the download was required.)
 nltk==3.8.1
 
 # --- retrieval index --------------------------------------------------------
 # The release uses faiss-gpu 1.7.2 (IndexFlatIP). rag2.retrieval.index falls back
 # to an exact numpy brute-force search when faiss is absent, which is
 # mathematically identical but far slower -- use faiss for real experiments.
-faiss-gpu==1.7.2 ; platform_system == "Linux"
+# faiss-gpu==1.7.2 is the release's version and is NO LONGER ON PyPI (only 1.14.3
+# and 1.15.0 remain), so pinning it makes this whole file uninstallable on Linux.
+# Left commented rather than bumped: faiss is optional here -- absent it,
+# rag2.retrieval.index uses an exact numpy brute-force search, which returns the
+# same neighbours and is only slower -- and silently substituting a different
+# faiss major in a requirements file is not the place to make that choice.
+# Install it deliberately if you want the speed:
+#   faiss-gpu ; platform_system == "Linux"
+
+# --- verified Windows / CPython 3.12 set ------------------------------------
+# The authors ran CPython 3.10.13 (environment.yml). Three of their pins have no
+# CPython 3.12 wheel at all -- numpy 1.24.3, safetensors 0.4.0 and
+# sentencepiece 0.1.99 are source-only there -- so their environment cannot be
+# reproduced exactly on 3.12. This set is the closest one that installs, and the
+# whole filter-training path was run end to end on it: script start, dataset
+# load, label tokens, training, checkpoint save, --select, checkpoint
+# verification and RAG2 inference.
+#
+#   torch==2.4.1+cu121   transformers==4.36.2   datasets==2.15.0
+#   accelerate==0.34.2   huggingface_hub==0.25.2   tokenizers==0.15.2
+#   safetensors==0.4.3   sentencepiece==0.2.0   numpy==1.26.4   nltk==3.8.1
+#
+# For maximal fidelity to the authors instead, use CPython 3.10 or 3.11, where
+# their exact numpy/safetensors/sentencepiece pins all have wheels.
+#
+# Training is fp32: Accelerator() is built with gradient_accumulation_steps only
+# and mixed_precision is never set. use_fp16 therefore only selects
+# pad_to_multiple_of=8 on the collator and has no effect on results. Check with
+# `accelerate env` that no stored config has turned fp16 on.
 
 # --- optional ---------------------------------------------------------------
 # vLLM: the paper's inference engine (appendix A.3). Generation only.
