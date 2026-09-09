@@ -40,9 +40,12 @@ corpus:
   index_dir: indexes/production
   index_encoder: ncbi/MedCPT-Article-Encoder
   index_dim: 768
-  # ENVIRONMENT-SPECIFIC: these are properties of the machine holding the index.
-  # Left blank deliberately -- a fabricated digest is worse than a missing one.
-  index_digest: ""          # fill from indexes/production/index_meta.json content_digest
+  # ENVIRONMENT-SPECIFIC: a property of the machine holding the index. Recorded
+  # only after verify_index.py reported 16/16 on 2026-09-09 and recomputed this
+  # digest from the vectors themselves -- it is a checked claim, not a copied one.
+  # 773,183 vectors = 781,563 chunks - 8,380 flagged duplicates, row-aligned to
+  # the manifest. Any future run whose index digest differs is a different index.
+  index_digest: "2ab50a1212681abd28f4f250d49f076c36f57d1b3a77ce5aaac093adde770937"
   index_verified_by: "python preprocessing/pmc/verify_index.py"   # must report 16/16
 
 # --- upstream: retrieval and reranking (frozen once, shared by both arms) ---
