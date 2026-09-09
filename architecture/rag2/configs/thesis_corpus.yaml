@@ -32,10 +32,22 @@ experiment:
 
 dataset:
   loader: jsonl
-  name: ""                        # set per run; recorded in the manifest
-  version: ""                     # set per run
-  path: ""
-  split: test
+  name: alzheimer-dev-v1
+  version: v1
+  # The committed thesis question set. Open-ended: 30 questions, no options and
+  # no gold answer -- this milestone compares admission, not accuracy.
+  path: data/datasets/thesis_questions/dev_questions.jsonl
+  split: test                     # recorded in the manifest; selects no subset
+  options:
+    fields:
+      # This set keys on 'qid', not the loader's default 'id'. Without this map
+      # the loader falls back to the row index and every question is renamed
+      # 0..29 -- which silently breaks the join to the frozen candidate sets,
+      # because SCAF and the comparison runner match on qid.
+      qid: qid
+    # psi(q) for SCAF's currency term, and the set identity, must survive into
+    # Question.metadata; the freeze step copies them into question_metadata.
+    metadata_fields: [time_sensitive, set]
 
 retrieval:
   # [S] MedCPT throughout -- the paper's retriever, and the encoder

@@ -62,6 +62,21 @@ def main() -> int:
     if not model:
         parser.error("--model is required: pass the directory produced by --init-tokens")
 
+    # --select is a claim about HOW the checkpoint was chosen, and it reaches the
+    # run manifest. Without a validation file the selection below is skipped
+    # silently and the last epoch is kept, so the claim would be false. Refuse
+    # rather than mislabel: 03_build_filter_labels.py writes filter_train.json
+    # and no validation split, so this is easy to hit.
+    if args.select and not args.validation_file:
+        parser.error(
+            "--select needs --validation-file: it picks the epoch with the best "
+            "validation accuracy, and without one the last epoch is kept instead.\n"
+            "  Either pass --validation-file <held-out labels>, or drop --select "
+            "and the final epoch is used (honest, just not epoch-selected).\n"
+            "  Note that 03_build_filter_labels.py writes only filter_train.json; "
+            "a validation split has to be held out from it."
+        )
+
     filter_dir = args.filter_output_dir or os.path.join(output_dir, "filter")
     command = build_train_command(
         model_name_or_path=model,
