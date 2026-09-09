@@ -68,6 +68,15 @@ retrieval:
 # --- ARM A: the original RAG2 admission policy -----------------------------
 arm_a:
   filter: rag2_perplexity           # MUST NOT be passthrough for a reported run
+  # These are the PAPER's values and are kept as the reference target. The
+  # thesis run on a 4 GB RTX 2050 uses the Alzheimer route instead
+  # (architecture/rag2/configs/thesis_alzheimer_filter.yaml: flan-t5-small,
+  # 8 epochs, corpus-derived weakly supervised labels). If you run that route,
+  # set base_model and checkpoint below to what you actually trained, so this
+  # file does not describe a run that did not happen. Neither field is read by
+  # the runner -- it records arm_a_checkpoint_identity from the checkpoint on
+  # disk -- so an unedited base_model misleads a reader without failing a check.
+  # See docs/runbooks/windows_experiment_runbook.md sections 4A/5A/6A.
   base_model: google/flan-t5-large  # paper 4.2, 770M
   # ENVIRONMENT-SPECIFIC: produced by
   # architecture/rag2/scripts/04_train_filter.py --select.

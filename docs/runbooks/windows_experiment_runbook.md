@@ -50,7 +50,10 @@ wrong on all three.
 | 3 freeze candidates | none — CPU only | **yes** |
 | 4 ΔPPL labels | **Llama-3-8B**, twice per (question, snippet) pair | **no** — and this is the most expensive stage |
 | 5 train the filter | `flan-t5-large` (770M) full fine-tune, AdamW | **no** — see below |
-| 6 comparison | **Llama-3-8B** for answers | **no** |
+| **4A Alzheimer dataset** | none — no model at all | **yes** — CPU, under a minute |
+| **5A train the filter** | `flan-t5-small` (77M) full fine-tune, AdamW | **yes** — 1.2 GB of optimizer state |
+| 6 comparison, admission only (`--generator none`) | `flan-t5-small` filter + SCAF | **yes** |
+| 6 comparison with answers | **Llama-3-8B** for answers | **no** |
 
 **Llama-3-8B** needs ~15 GB at bf16, ~7.5 GB at int8 and ~3.7 GB at int4 for
 weights alone, before the KV cache, activations and ~0.3–0.5 GB of CUDA context.
@@ -66,14 +69,36 @@ accumulation 16 needs the same memory as batch 16.
 
 Options, in order of scientific cost:
 
-1. **A larger GPU for steps 2, 4, 5 and 6** — changes nothing about the method.
+1. **Steps 4A/5A instead of 4/5** — what this thesis does. Trains a real filter
+   on this card by changing the *training data* and the *model size*, both
+   recorded as departures from the paper. Steps 4A and 5A below.
+2. **A larger GPU for steps 2, 4, 5 and 6** — changes nothing about the method.
    ≥16 GB covers Flan-T5 training and 8B inference; ≥24 GB is comfortable.
-2. **A hosted backend for the Llama stages** (`--generator openai` or `vllm`),
+3. **A hosted backend for the Llama stages** (`--generator openai` or `vllm`),
    with step 5 still needing a ≥12 GB card.
-3. **LoRA or a quantised filter for step 5** — this is a **deviation from
-   Appendix A.3**, which specifies full fine-tuning at lr 3e-5, batch 16,
-   40 epochs. It would need recording as a documented departure from the paper,
-   not adopted silently.
+4. **LoRA or a quantised filter for step 5** — a **deviation from Appendix A.3**,
+   which specifies full fine-tuning at lr 3e-5, batch 16, 40 epochs. It would
+   need recording as a documented departure from the paper, not adopted silently.
+
+**What still needs the 8B model on this route.** Steps 4A and 5A remove Llama-3
+from *labelling* and *training*, not from *retrieval*. RAG²'s retrieval query is
+the generated rationale (`rag2/rationale.py:retrieval_query`), so step 2 still
+needs the backbone. Two ways through on 4 GB, for 30 questions only:
+
+- run `01_generate_rationales.py` once with CPU or accelerate CPU-offload, save
+  `rationales.json`, then pass it to `02_retrieve.py --rationales`; 30
+  generations is minutes-to-an-hour on CPU, and it is a one-off;
+- or use a hosted backend for that one step.
+
+Retrieving with the raw question instead is **not** a substitute: it is the
+paper's `MedCPT` baseline row, not RAG², and `retrieval_query` falls back to it
+silently when the rationale is empty. Check `rationales.json` is non-empty for
+all 30 questions before freezing.
+
+Answer generation (step 6 with `--generator huggingface`) still needs the 8B
+model. It is not needed for the admission-behaviour result: the 30 questions
+carry no gold answers, so run step 6 with `--generator none` and report
+admission, which is what section 6 does.
 
 This is the one hardware question to settle before starting.
 
@@ -133,6 +158,131 @@ Writes `experiments/runs/frozen_candidates.jsonl` plus a `.meta.json` sidecar ca
 the **frozen-set digest** and the corpus statistics SCAF's support scorer needs.
 **Record the digest.** From here, both arms consume this file and nothing
 re-retrieves.
+
+---
+
+## 4A / 5A. The Alzheimer-specific filter route — **use this one on the RTX 2050**
+
+Steps 4 and 5 below are the paper's own route. They need Llama-3-8B for
+labelling and flan-t5-large for training, and **neither fits 4 GB**. This
+alternative replaces both. It is the route the thesis takes; steps 4 and 5 are
+kept because they remain the canonical MedQA/MedMCQA path and nothing about them
+has been removed.
+
+What changes, and what does not:
+
+| | steps 4–5 (paper) | steps 4A–5A (thesis) |
+| --- | --- | --- |
+| training questions | MedQA / MedMCQA | Alzheimer, built from **this corpus** |
+| labels | ΔPPL + Figure 2 tree, via Llama-3-8B | corpus structure, **no model in the loop** |
+| label class | derived from model behaviour | **weak supervision** — stated everywhere |
+| filter model | flan-t5-large (770M) | flan-t5-small (77M) |
+| epochs | 40 | 8 |
+| retrieval corpus | — | **unchanged and frozen** |
+| evaluation questions | — | **unchanged, never trained on** |
+
+### 4A. Build the Alzheimer training dataset
+
+Reads the frozen corpus, writes nothing to `data/`. Runs on CPU in well under a
+minute; no GPU, no model download.
+
+```
+python architecture\rag2\scripts\03b_build_alzheimer_filter_labels.py --target-questions 800
+```
+
+Writes to `experiments/results/rag2_vs_scaf_alzheimer/training_dataset/`:
+`train.json`, `validation.json`, their `.provenance.jsonl` sidecars,
+`question_index.jsonl`, `human_validation_subset.jsonl`, `manifest.json` and a
+generated `TRAINING_DATA_REPORT.md`.
+
+These files are committed, so this step is a **verification** rather than a
+prerequisite: rebuild it and the `sha256` values in the manifest should match.
+If they do not, your corpus differs from the one the committed dataset was built
+from, and the manifest's `source_corpus.chunks_file_sha256` says so.
+
+Read `TRAINING_DATA_REPORT.md` before quoting any number from the trained
+filter. Its first section is the label-provenance statement, and the labels are
+**weakly supervised, not gold**.
+
+### 4A(ii). Optional but recommended — validate a sample by hand
+
+`human_validation_subset.jsonl` holds a stratified sample with `human_label`
+left blank. Fill that field in with `[HELPFUL]` or `[NOT_HELPFUL]` for as many
+rows as time allows, then measure agreement:
+
+```
+python -c "import json,sys; sys.path.insert(0,'architecture/rag2'); ^
+from rag2.filter_training.alzheimer_corpus import score_human_validation; ^
+rows=[json.loads(l) for l in open(r'experiments/results/rag2_vs_scaf_alzheimer/training_dataset/human_validation_subset.jsonl',encoding='utf-8')]; ^
+print(json.dumps(score_human_validation(rows), indent=2))"
+```
+
+This is the one number that turns "weak supervision" from an assertion into a
+measurement. Nothing else in the pipeline fills that field in, by design.
+
+### 5A. Train the filter on the Alzheimer dataset
+
+```
+set DS=experiments\results\rag2_vs_scaf_alzheimer\training_dataset
+
+python architecture\rag2\scripts\04_train_filter.py -c architecture\rag2\configs\thesis_alzheimer_filter.yaml ^
+    --init-tokens --token-dir runs\filter-alz-base
+
+python architecture\rag2\scripts\04_train_filter.py -c architecture\rag2\configs\thesis_alzheimer_filter.yaml ^
+    --model runs\filter-alz-base ^
+    --train-file %DS%\train.json ^
+    --validation-file %DS%\validation.json ^
+    --filter-output-dir runs\filter-alzheimer ^
+    --select
+```
+
+Add `--dry-run` to the second command first if you want to see the exact
+`run_classifier.py` argv before it runs.
+
+`configs/thesis_alzheimer_filter.yaml` carries the memory arithmetic in full;
+the short version is that AdamW in fp32 costs 16 bytes per parameter before
+activations, which is 12.3 GB for flan-t5-large and 4.0 GB for flan-t5-base.
+Effective batch stays at the paper's 16 via 4 × 4 gradient accumulation.
+
+Expect `--select` to print that only one checkpoint was loadable. That is
+correct, not a failure: `run_classifier.py` writes each epoch with
+`accelerator.save_state`, which produces no `config.json`, so only the final
+`--output_dir` is a loadable HuggingFace checkpoint. To choose an epoch count on
+evidence, run this step more than once with `-o filter_training.num_train_epochs=N`
+and compare the validation accuracy reported in 5A(ii) — that is selection on
+the **validation split of the training dataset**, never on the 30 evaluation
+questions.
+
+### 5A(ii). Load-test the checkpoint — do not skip this
+
+```
+python architecture\rag2\scripts\verify_filter_checkpoint.py ^
+    --checkpoint runs\filter-alzheimer ^
+    --validation-file %DS%\validation.json ^
+    --config architecture\rag2\configs\thesis_alzheimer_filter.yaml ^
+    --out experiments\results\rag2_vs_scaf_alzheimer\filter
+```
+
+Loads the checkpoint through `RAG2PerplexityFilter` — the same class the
+comparison uses — checks that `[HELPFUL]` and `[NOT_HELPFUL]` survived as
+distinct token ids, scores the whole validation split, and writes
+`checkpoint_verification.json`.
+
+Two checks are there to stop a useless filter reaching the comparison:
+
+- **not degenerate** — a filter that keeps every pair *is* passthrough, and one
+  that keeps none *is* `no_evidence`. Either makes the RAG² arm uninformative.
+- **beats the majority-class baseline** — the validation split is 33.3%
+  positive, so always answering `[NOT_HELPFUL]` scores 66.7%. A filter that does
+  not beat that has learned nothing.
+
+If either fails, **fix the filter before running the comparison**: raise the
+epoch count, or rebuild the dataset with more questions
+(`--target-questions 1500`). Do not proceed and report the result anyway.
+
+Then set `arm_a.checkpoint` in `experiments/configs/preliminary_experiment.yaml`
+to `runs/filter-alzheimer`, and set `arm_a.base_model` to
+`google/flan-t5-small` so the manifest records what was actually trained.
 
 ---
 
@@ -213,9 +363,46 @@ checks, in the order they fire:
 6. checkpoint unloadable → refused, naming what a checkpoint must contain
 7. then the 18 recorded preconditions (below)
 
-Outputs to `experiments/runs/`: `per_question.jsonl` (full traces) and `manifest.json`.
-A run is reportable only when `manifest.reportable` is `true`; otherwise the
-label reads `DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT`.
+Outputs to `experiments/runs/` by default: `per_question.jsonl` (full traces),
+`manifest.json` and `paired_comparison.json`. A run is reportable only when
+`manifest.reportable` is `true`; otherwise the label reads
+`DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT`.
+
+### 6A. On the Alzheimer route — admission behaviour, no answers
+
+The 30 questions carry no gold answers, so answer accuracy cannot be computed
+and must not be claimed. Run the comparison for admission behaviour and send it
+to the results directory:
+
+```
+python experiments\scripts\run_comparison.py ^
+    --frozen experiments\runs\frozen_candidates.jsonl ^
+    --rag2-filter rag2_perplexity ^
+    --rag2-checkpoint runs\filter-alzheimer ^
+    --generator none ^
+    --out experiments\results\rag2_vs_scaf_alzheimer\comparison
+```
+
+`--scientific` is **omitted deliberately**, and this is not a way of dodging the
+gate: that flag requires a configured generator (precondition "a generator is
+configured"), and a generator would produce answers there is no ground truth to
+score. The run still prints every precondition and still labels itself
+`DEVELOPMENT RUN -- NOT A SCIENTIFIC RESULT`; report it as an
+**evidence-selection** result, which is what it is, and quote the unmet
+preconditions alongside it. Add `--scientific --generator huggingface` only once
+gold answers exist and a GPU that fits the 8B model is available.
+
+`paired_comparison.json` is the file the write-up quotes. It carries, per
+question and in aggregate: candidates seen, chunks admitted by each arm, the
+signed and absolute paired difference, how many questions each arm admits more
+on, how many are tied, and the Jaccard overlap of *which* chunks were admitted.
+That last one is the point — two policies can admit identical counts and share
+almost no evidence.
+
+Copy the frozen-set digest from the `.meta.json` sidecar into
+`experiments/results/rag2_vs_scaf_alzheimer/candidates/` alongside the run, and
+cite it with the numbers. Both arms consumed that one file; that is what makes
+the comparison paired.
 
 ---
 

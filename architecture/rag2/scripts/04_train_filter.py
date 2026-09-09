@@ -79,6 +79,11 @@ def main() -> int:
         )
 
     filter_dir = args.filter_output_dir or os.path.join(output_dir, "filter")
+    # run_classifier.py opens <output_dir>/logs.log through logging.basicConfig
+    # before it creates the directory, so an absent output directory kills the
+    # run with FileNotFoundError before training starts. Creating it here fixes
+    # that without editing the authors' script.
+    os.makedirs(filter_dir, exist_ok=True)
     command = build_train_command(
         model_name_or_path=model,
         train_file=os.path.abspath(args.train_file),

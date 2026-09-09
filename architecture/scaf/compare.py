@@ -275,6 +275,114 @@ def summarise(results: Sequence[ArmResult]) -> Dict[str, Any]:
     }
 
 
+def _quantiles(values: Sequence[int]) -> Dict[str, Any]:
+    """Distribution summary. Median, not just the mean: admission counts over 30
+    questions are small-sample and a single all-or-nothing question moves a mean
+    a long way."""
+    if not values:
+        return {"n": 0, "mean": 0.0, "median": 0.0, "min": 0, "max": 0}
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    median = (ordered[middle] if len(ordered) % 2
+              else (ordered[middle - 1] + ordered[middle]) / 2)
+    return {
+        "n": len(ordered),
+        "mean": round(sum(ordered) / len(ordered), 3),
+        "median": float(median),
+        "min": ordered[0],
+        "max": ordered[-1],
+    }
+
+
+def paired_comparison(arm_a: Sequence[ArmResult], arm_b: Sequence[ArmResult],
+                      arm_a_name: str = "rag2", arm_b_name: str = "scaf") -> Dict[str, Any]:
+    """Question-by-question comparison of two arms over one frozen candidate set.
+
+    Paired, because both arms saw the *same* candidates for the same question:
+    the per-question difference is therefore attributable to the admission
+    policy and nothing else, which an unpaired comparison of two means is not.
+
+    Reports what can honestly be said when the question set has no gold answers:
+    how much evidence each policy admits, how often each admits more, and how
+    far the two agree on *which* evidence -- Jaccard over admitted chunk ids.
+    Two policies can admit identical counts and still overlap barely at all, and
+    that would be the more interesting finding of the two.
+
+    No significance test is reported. n=30 with no gold answers does not support
+    an inferential claim, and a p-value here would invite one.
+    """
+    by_qid_b = {r.qid: r for r in arm_b}
+    rows: List[Dict[str, Any]] = []
+    a_more = b_more = tied = 0
+    overlaps: List[float] = []
+
+    for a in arm_a:
+        b = by_qid_b.get(a.qid)
+        if b is None or a.error or b.error:
+            continue
+        admitted_a, admitted_b = set(a.admitted_chunk_ids), set(b.admitted_chunk_ids)
+        union = admitted_a | admitted_b
+        jaccard = (len(admitted_a & admitted_b) / len(union)) if union else None
+        if jaccard is not None:
+            overlaps.append(jaccard)
+        if len(admitted_a) > len(admitted_b):
+            a_more += 1
+        elif len(admitted_b) > len(admitted_a):
+            b_more += 1
+        else:
+            tied += 1
+        rows.append({
+            "qid": a.qid,
+            "num_candidates": a.num_candidates,
+            f"{arm_a_name}_admitted": len(admitted_a),
+            f"{arm_b_name}_admitted": len(admitted_b),
+            "difference": len(admitted_a) - len(admitted_b),
+            "intersection": len(admitted_a & admitted_b),
+            "union": len(union),
+            "jaccard": None if jaccard is None else round(jaccard, 4),
+            f"{arm_a_name}_only": sorted(admitted_a - admitted_b),
+            f"{arm_b_name}_only": sorted(admitted_b - admitted_a),
+            "both_empty": not union,
+        })
+
+    counts_a = [row[f"{arm_a_name}_admitted"] for row in rows]
+    counts_b = [row[f"{arm_b_name}_admitted"] for row in rows]
+    differences = [row["difference"] for row in rows]
+    measurable = [row for row in rows if row["jaccard"] is not None]
+
+    return {
+        "questions_compared": len(rows),
+        "candidates_per_question": _quantiles([row["num_candidates"] for row in rows]),
+        "total_candidate_chunks": sum(row["num_candidates"] for row in rows),
+        f"{arm_a_name}_admitted": _quantiles(counts_a),
+        f"{arm_b_name}_admitted": _quantiles(counts_b),
+        f"{arm_a_name}_total_admitted": sum(counts_a),
+        f"{arm_b_name}_total_admitted": sum(counts_b),
+        f"{arm_a_name}_admission_rate": round(
+            sum(counts_a) / sum(row["num_candidates"] for row in rows), 6) if rows else 0.0,
+        f"{arm_b_name}_admission_rate": round(
+            sum(counts_b) / sum(row["num_candidates"] for row in rows), 6) if rows else 0.0,
+        "paired_difference": {
+            **_quantiles(differences),
+            "mean_absolute": round(sum(abs(d) for d in differences) / len(differences), 3)
+            if differences else 0.0,
+        },
+        f"questions_{arm_a_name}_admits_more": a_more,
+        f"questions_{arm_b_name}_admits_more": b_more,
+        "questions_tied": tied,
+        "selected_evidence_overlap": {
+            "measurable_questions": len(measurable),
+            "unmeasurable_questions": len(rows) - len(measurable),
+            "note": "a question where both arms admitted nothing has no defined "
+                    "Jaccard and is excluded from the mean rather than counted as 0 or 1",
+            "mean_jaccard": round(sum(overlaps) / len(overlaps), 4) if overlaps else None,
+            "identical_selections": sum(1 for row in measurable if row["jaccard"] == 1.0),
+            "disjoint_selections": sum(1 for row in measurable if row["jaccard"] == 0.0),
+        },
+        "per_question": rows,
+    }
+
+
 def answer_report(results: Sequence[ArmResult],
                   frozen_sets: Sequence[FrozenCandidateSet]) -> Optional[Dict[str, Any]]:
     """Open-ended answer metrics, or ``None`` when the arm produced no answers.
