@@ -6,7 +6,9 @@ are the run itself and are marked `NOT YET RUN`; they must be filled from the
 files the runbook produces, not from expectation. Nothing in this file may be
 quoted as a result until section 5 carries a frozen-set digest.
 
-Commit: `95a4264`. Branch: `claude/pubmed-acquisition-pipeline-8aikdr`.
+Branch: `claude/pubmed-acquisition-pipeline-8aikdr`. Run
+`git log --oneline -5` for the commit this file is part of — an earlier draft
+named a SHA here, which can never be its own commit's and was stale on arrival.
 
 ---
 

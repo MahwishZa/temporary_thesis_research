@@ -378,3 +378,60 @@ def test_the_dataset_carries_no_date_field_anywhere():
         assert banned not in serialised, f"{banned} reached the training artifact"
     assert "pmid" in pair.provenance and "pmcid" in pair.provenance, \
         "the date must stay recoverable from the corpus via these identifiers"
+
+
+class TestRationaleCoverage:
+    """A precomputed rationale file must cover every question, or the run is a mixture.
+
+    ``retrieval_query`` falls back to the raw question when a rationale is blank.
+    That is the paper's MedCPT baseline row, and reaching it by accident on some
+    questions and not others reports two conditions under one name.
+    """
+
+    @staticmethod
+    def _questions(n=3):
+        from rag2.schema import Question
+        return [Question(f"alz-{i:03d}", f"Question {i}?", {}, None) for i in range(n)]
+
+    def test_a_complete_file_passes(self):
+        from rag2.rationale import validate_rationales
+        questions = self._questions()
+        report = validate_rationales({q.qid: f"Because {q.qid}..." for q in questions}, questions)
+        assert report["complete"] and report["with_rationale"] == 3
+        assert report["missing"] == [] and report["blank"] == []
+
+    def test_a_missing_qid_is_reported(self):
+        from rag2.rationale import validate_rationales
+        questions = self._questions()
+        report = validate_rationales({"alz-000": "r", "alz-001": "r"}, questions)
+        assert not report["complete"]
+        assert report["missing"] == ["alz-002"]
+
+    def test_a_whitespace_only_rationale_counts_as_blank(self):
+        """This is the dangerous case: present, non-null, and still a fallback."""
+        from rag2.rationale import validate_rationales
+        questions = self._questions()
+        report = validate_rationales(
+            {"alz-000": "r", "alz-001": "   \n ", "alz-002": ""}, questions)
+        assert not report["complete"]
+        assert report["blank"] == ["alz-001", "alz-002"]
+        assert report["with_rationale"] == 1
+
+    def test_keys_matching_no_question_are_surfaced(self):
+        from rag2.rationale import validate_rationales
+        questions = self._questions(2)
+        report = validate_rationales(
+            {"alz-000": "r", "alz-001": "r", "medqa-7": "r"}, questions)
+        assert report["complete"]           # coverage is fine ...
+        assert report["unused_keys"] == ["medqa-7"]   # ... but the file is from elsewhere
+
+    def test_blankness_is_exactly_what_retrieval_query_falls_back_on(self):
+        """Pins the guard to the behaviour it guards, not to a copy of the rule."""
+        from rag2.rationale import retrieval_query, validate_rationales
+        questions = self._questions(1)
+        question = questions[0]
+        for rationale in ("", "   ", "\n\t"):
+            assert retrieval_query(rationale, question) == question.question
+            assert not validate_rationales({question.qid: rationale}, questions)["complete"]
+        assert retrieval_query("a real rationale", question) == "a real rationale"
+        assert validate_rationales({question.qid: "a real rationale"}, questions)["complete"]

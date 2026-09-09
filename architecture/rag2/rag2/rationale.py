@@ -8,7 +8,7 @@ using the rationale, excluding the initial query."
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from .llm.base import LLM
 from .prompts import DEFAULT_PROMPTS, PromptSet
@@ -45,3 +45,36 @@ def retrieval_query(rationale: str, question: Question, use_rationale: bool = Tr
     if use_rationale and rationale.strip():
         return rationale.strip()
     return question.question.strip()
+
+
+def validate_rationales(
+    rationales: Mapping[str, str], questions: Sequence[Question]
+) -> Dict[str, Any]:
+    """Check a precomputed rationale file actually covers every question.
+
+    ``retrieval_query`` falls back to the raw question when a rationale is
+    missing or blank. That fallback is a real configuration -- it is the paper's
+    ``MedCPT`` baseline row -- but it is **not RAG2**, and arriving at it by
+    accident would mean reporting the baseline under the method's name. A
+    partially empty ``rationales.json`` (an interrupted generation, an OOM part
+    way through, a qid mismatch between the file and the question set) does
+    exactly that, silently and per question.
+
+    Returns a report; the caller decides whether to refuse.
+    """
+    missing = sorted(q.qid for q in questions if q.qid not in rationales)
+    blank = sorted(q.qid for q in questions
+                   if q.qid in rationales and not str(rationales[q.qid]).strip())
+    covered = [q for q in questions if str(rationales.get(q.qid, "")).strip()]
+    lengths = sorted(len(str(rationales[q.qid]).strip()) for q in covered)
+    unused = sorted(set(rationales) - {q.qid for q in questions})
+    return {
+        "questions": len(questions),
+        "with_rationale": len(covered),
+        "missing": missing,
+        "blank": blank,
+        "unused_keys": unused,
+        "complete": not missing and not blank,
+        "shortest_chars": lengths[0] if lengths else 0,
+        "median_chars": lengths[len(lengths) // 2] if lengths else 0,
+    }
