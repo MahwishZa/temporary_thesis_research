@@ -1,0 +1,55 @@
+{
+  "completeness": {
+    "completed": 120,
+    "duplicate_annotation_ids": [],
+    "invalid": 0,
+    "invalid_entries": [],
+    "label_distribution": {
+      "0": 4,
+      "1": 41,
+      "2": 75
+    },
+    "missing": 0,
+    "missing_ids": [],
+    "ready_for_analysis": true,
+    "schema_version": "evidence-quality-v1",
+    "total_rows": 120
+  },
+  "label_fingerprint": "27958067ae7809bb50268bbe2b7b05559de49687d4cecf4bb51b7f322af9f34d",
+  "original_path": "C:\\Users\\mahwi\\Documents\\MS SE\\4th semester\\thesis_research\\experiments\\results\\rag2_vs_scaf_alzheimer\\evidence_quality\\annotation_sheet.jsonl",
+  "retired_utc": "2026-09-10T11:07:24Z",
+  "rows": 120,
+  "sha256": "45d67421985ce9b9f5af8f5c0aac355a02ea9cca827e1c98c5bca29946582984",
+  "status": "INVALID FOR PRIMARY REPORTING -- complete suggestion anchoring",
+  "suggestion_anchoring": {
+    "all": {
+      "agreement_rate": 1.0,
+      "human_above_suggestion": 0,
+      "human_below_suggestion": 0,
+      "mean_signed_difference": 0.0,
+      "n": 120,
+      "spearman_suggestion_vs_human": 1.0,
+      "suggestion_distribution": {
+        "0": 4,
+        "1": 41,
+        "2": 75
+      }
+    },
+    "guard": "A high agreement rate does NOT validate the suggestion rule. It means the labels are not independent of it, which inflates any association between the human label and SCAF's lexical support term. Rows annotated with the suggestion hidden are the only ones free of this effect; if there are none, the whole sample carries it.",
+    "rows_with_a_recorded_suggestion": 120,
+    "rows_without_a_recorded_suggestion": 0,
+    "shown": {
+      "agreement_rate": 1.0,
+      "human_above_suggestion": 0,
+      "human_below_suggestion": 0,
+      "mean_signed_difference": 0.0,
+      "n": 120,
+      "spearman_suggestion_vs_human": 1.0,
+      "suggestion_distribution": {
+        "0": 4,
+        "1": 41,
+        "2": 75
+      }
+    }
+  }
+}

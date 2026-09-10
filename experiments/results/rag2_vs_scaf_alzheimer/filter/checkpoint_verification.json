@@ -1,0 +1,12 @@
+{
+  "all_passed": false,
+  "checked_utc": "2026-09-09T13:19:08Z",
+  "checkpoint": "C:\\Users\\mahwi\\Documents\\MS SE\\4th semester\\thesis_research\\architecture\\rag2\\runs\\filter-alzheimer",
+  "checks": [
+    {
+      "check": "checkpoint has config.json",
+      "detail": "no config.json -- this looks like an accelerator.save_state directory (training state), not a model checkpoint",
+      "pass": false
+    }
+  ]
+}
