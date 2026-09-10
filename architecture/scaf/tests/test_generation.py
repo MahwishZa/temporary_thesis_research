@@ -11,7 +11,7 @@ missing dependency produces an actionable error instead of a downgrade.
 
 A fake LLM is injected through ``build_generator(..., llm=...)``, which the
 scientific path does not expose. Real-model execution is a Windows/GPU concern
-and is explicitly out of scope here -- see docs/runbooks/windows_experiment_runbook.md.
+and is explicitly out of scope here -- see docs/windows_runbook.md.
 """
 
 import os

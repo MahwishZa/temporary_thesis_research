@@ -275,7 +275,7 @@ interface, so **no baseline code changes to run over it**. Two structural notes:
 * It loads **one source category per instance** (`pubmed-abstract`,
   `pmc-fulltext`, `currency-pack`), which is what keeps balanced retrieval
   meaningful: three corpora here play the role of the paper's four. See
-  `docs/reproduction/rag2_reproduction_audit.md` §4 for why three, not four, and what that
+  `docs/rag2_reproduction_audit.md` §4 for why three, not four, and what that
   costs.
 
 ### 4.2 Retrieval procedure — **[S]**
@@ -687,7 +687,7 @@ match:
 Per the task brief, the baseline is **not** to be tuned to close a gap with the
 paper. `scripts/06_evaluate.py` prints the delta against the table above and
 writes a `*.report.json` beside the predictions; those numbers and their
-explanations are transcribed into `docs/reproduction/reproduction_results.md`, not engineered
+explanations are transcribed into `THESIS.md`, not engineered
 away.
 
 ---

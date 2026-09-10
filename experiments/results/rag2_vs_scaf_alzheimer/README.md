@@ -1,7 +1,7 @@
 # RAG² vs SCAF — Alzheimer domain
 
 Results directory for the comparison described in
-`docs/runbooks/windows_experiment_runbook.md` sections 4A, 5A and 6A.
+`docs/windows_runbook.md` sections 4A, 5A and 6A.
 
 The experiment has three strictly separated components. Keeping them separate is
 what makes the result defensible, so the layout mirrors them.

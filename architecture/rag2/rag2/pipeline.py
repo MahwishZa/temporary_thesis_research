@@ -144,7 +144,7 @@ def run_filter_and_generate(
         kept, decisions = evidence_filter.apply(question, candidates)
 
         # The paper does not say what happens when everything is filtered out;
-        # docs/reproduction/rag2_reproduction.md section 5.6 records the choice.
+        # docs/rag2_reproduction.md section 5.6 records the choice.
         fallback = None
         if not kept and candidates:
             if config.filter.on_empty == "keep_top1":

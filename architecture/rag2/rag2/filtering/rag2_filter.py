@@ -29,7 +29,7 @@ Truncation
 path additionally sets ``doc_stride=128`` with ``return_overflowing_tokens``,
 which emits one prediction per overflow window while zipping against per-example
 ids -- desynchronising predictions from gold whenever an input overflows (see
-docs/reproduction/rag2_reproduction.md section 5.7). Inference here scores one window per pair
+docs/rag2_reproduction.md section 5.7). Inference here scores one window per pair
 (``filter.overflow: truncate``); ``stride`` reproduces the release's windowing
 and aggregates windows by max helpfulness probability rather than desynchronising.
 """
@@ -89,7 +89,7 @@ class RAG2PerplexityFilter(EvidenceFilter):
         if not config.checkpoint:
             raise ValueError(
                 "filter.checkpoint is empty: the paper's trained filter checkpoint is "
-                "not distributed (see docs/reproduction/rag2_reproduction.md section 2). Train one with "
+                "not distributed (see docs/rag2_reproduction.md section 2). Train one with "
                 "scripts/04_train_filter.py, or set filter.kind=passthrough to run the "
                 "'RAG2 w/o filter' ablation."
             )

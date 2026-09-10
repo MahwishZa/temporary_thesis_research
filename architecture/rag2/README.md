@@ -63,7 +63,7 @@ are documented in the per-component READMEs.
 > **Where you are.** This tree lives at `architecture/rag2/` inside the
 > `thesis_research` repository, as the **baseline** for the MS thesis *"Does the
 > Filter Prefer the Past?"*. Start with the repository-level audit,
-> [`docs/reproduction/rag2_reproduction_audit.md`](../../docs/reproduction/rag2_reproduction_audit.md):
+> [`docs/rag2_reproduction_audit.md`](../../docs/rag2_reproduction_audit.md):
 > it says what was verified, what was corrected, and what is still unverified.
 > The thesis extension is **not** implemented here — see `experiments/README.md`
 > for the boundary.
@@ -78,11 +78,11 @@ separate on purpose:
 | --- | --- |
 | `retriever/`, `classifier/` | the authors' released code, **unmodified** |
 | `rag2/`, `configs/`, `scripts/`, `tests/` | the reproduction |
-| `docs/reproduction/rag2_reproduction.md` (repository root) | what the paper specifies, what it leaves open, and every assumption made |
-| `docs/reproduction/reproduction_results.md` (repository root) | measured results and their discrepancies vs. the paper |
+| `docs/rag2_reproduction.md` (repository root) | what the paper specifies, what it leaves open, and every assumption made |
+| `THESIS.md` (repository root) | measured results and their discrepancies vs. the paper |
 
 Start with
-**[`docs/reproduction/rag2_reproduction.md`](../../docs/reproduction/rag2_reproduction.md)**.
+**[`docs/rag2_reproduction.md`](../../docs/rag2_reproduction.md)**.
 It records, component by component, what is explicitly specified `[S]`, what is ambiguous and
 which reading was adopted `[A]`, what is unavailable and whether it can be
 reconstructed `[U]`, and where the paper and the released code disagree `[D]` —

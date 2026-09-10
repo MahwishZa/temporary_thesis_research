@@ -3,7 +3,7 @@
 
     python experiments/scripts/thesis_final_analysis.py
 
-Writes into experiments/results/rag2_vs_scaf_alzheimer/final/:
+Writes into experiments/results/rag2_vs_scaf_alzheimer/analysis/:
 
     THESIS_FINAL_RESULTS.md    for a person to read
     thesis_final_results.json  the same content, structured
@@ -57,7 +57,7 @@ DEFAULT_RUN_MANIFEST = os.path.join(RESULTS, "comparison_scientific", "manifest.
 DEFAULT_SHEET = os.path.join(RESULTS, "evidence_quality", "annotation_sheet_v2.jsonl")
 DEFAULT_READINESS = os.path.join(RESULTS, "analysis", "matched_k5_readiness.json")
 DEFAULT_MATCHED_K = os.path.join(RESULTS, "matched_k5", "manifest.json")
-DEFAULT_OUT = os.path.join(RESULTS, "final")
+DEFAULT_OUT = os.path.join(RESULTS, "analysis")
 
 #: Each entry begins with its own negation, so that no bullet can be quoted out
 #: of this list and read as an assertion. That is the point of the list.

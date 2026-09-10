@@ -462,10 +462,10 @@ on, how many are tied, and the Jaccard overlap of *which* chunks were admitted.
 That last one is the point — two policies can admit identical counts and share
 almost no evidence.
 
-Copy the frozen-set digest from the `.meta.json` sidecar into
-`experiments/results/rag2_vs_scaf_alzheimer/candidates/` alongside the run, and
-cite it with the numbers. Both arms consumed that one file; that is what makes
-the comparison paired.
+The runner already records the frozen-set digest from the `.meta.json` sidecar
+into the run's own `manifest.json` (`frozen_set_digest`), so there is nothing to
+copy by hand — cite it from there with the numbers. Both arms consumed that one
+file; that is what makes the comparison paired.
 
 ---
 
@@ -509,7 +509,7 @@ fail — which is the correct report, not a defect.
   revision and decoding parameters — they are the same object by construction.
 - `manifest.scaf_components` shows each SCAF sub-score varies; a constant one is
   inert.
-- Transcribe results into `docs/experiments/preliminary_rag2_vs_scaf.md`, **as measured**.
+- Transcribe results into `THESIS.md`, **as measured**.
 
 ---
 
@@ -524,4 +524,4 @@ against it would measure almost nothing.
 a provenance firewall; the corpus was never the intended source, and an earlier
 version of this section wrongly reported the two as the same blocker. The probe
 is implemented — see `experiments/recency_bias/README.md` for the exact command
-and `docs/experiments/preliminary_rag2_vs_scaf.md` §0 for the correction.
+and `THESIS.md` §0 for the correction.

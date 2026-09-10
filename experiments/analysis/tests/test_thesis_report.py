@@ -29,7 +29,7 @@ from experiments.analysis.thesis_report import (  # noqa: E402
 )
 
 RESULTS = os.path.join(_ROOT, "experiments", "results", "rag2_vs_scaf_alzheimer")
-FINAL = os.path.join(RESULTS, "final")
+FINAL = os.path.join(RESULTS, "analysis")
 SCRIPT = os.path.join(_ROOT, "experiments", "scripts", "thesis_final_analysis.py")
 SHEET = os.path.join(RESULTS, "evidence_quality", "annotation_sheet_v2.jsonl")
 

@@ -16,7 +16,7 @@ rationales**"), section 2.1 ("we measure perplexity differences in the
 Perplexity" node is tagged **Rationale**. This module therefore scores the
 **rationale**, conditioned on a prompt that does or does not carry the document;
 ``filter_training.ppl_target: query`` selects the literal reading instead. See
-docs/reproduction/rag2_reproduction.md section 5.4.
+docs/rag2_reproduction.md section 5.4.
 
 The *same* rationale string -- the one generated without retrieval -- is scored
 in both terms, so Delta-PPL isolates the document's effect on one fixed

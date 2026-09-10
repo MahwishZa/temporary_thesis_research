@@ -120,7 +120,7 @@ read as authoritative.
 
 Recover it with `git show <commit>^:preprocessing/pmc/retrieve.py` if the
 standard-library reference is ever wanted; see
-[`docs/architecture/reorganization_2026-09-08.md`](../docs/architecture/reorganization_2026-09-08.md)
+[`THESIS.md`](../THESIS.md)
 §13.
 
 ## Why `pmc/` is one flat directory
