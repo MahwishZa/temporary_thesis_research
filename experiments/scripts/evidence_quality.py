@@ -48,6 +48,7 @@ from experiments.analysis.evidence_quality import (  # noqa: E402
     stratified_sample,
     time_sensitivity_split,
 )
+from experiments.analysis.eq_audit import run_audit  # noqa: E402
 
 RESULTS = os.path.join(_ROOT, "experiments", "results", "rag2_vs_scaf_alzheimer")
 DEFAULT_PER_QUESTION = os.path.join(RESULTS, "comparison_scientific", "per_question.jsonl")
@@ -232,7 +233,22 @@ def cmd_analyse(args: argparse.Namespace) -> int:
         return 1
 
     key_by_id = {r["annotation_id"]: r for r in _read_jsonl(key)}
-    merged = [{**key_by_id.get(r["annotation_id"], {}), **r} for r in rows]
+
+    # A row whose id is absent from the key merges to a row with no machine
+    # scores. That failure is silent and asymmetric: the row drops out of the
+    # rank correlations (shrinking n) but stays in the admission tables, where a
+    # missing scaf_admitted reads as False and lands it in "rejected". The
+    # analysis would still print a full-looking result. Refuse instead.
+    unresolved = [r["annotation_id"] for r in rows if r["annotation_id"] not in key_by_id]
+    if unresolved:
+        print(f"REFUSING: {len(unresolved)} annotation id(s) in the sheet are absent "
+              f"from the key.\n  First few: {unresolved[:5]}\n"
+              "  The sheet and the key are not from the same export, so the machine\n"
+              "  scores cannot be joined back to these labels. Re-export, or pass the\n"
+              "  key that matches this sheet with --key.")
+        return 1
+
+    merged = [{**key_by_id[r["annotation_id"]], **r} for r in rows]
 
     result = analyse(merged)
     result["completeness"] = report
@@ -258,6 +274,26 @@ def cmd_analyse(args: argparse.Namespace) -> int:
     print("\n-- disagreement --")
     for name, stats in (result.get("disagreement_cases") or {}).items():
         print(f"   {name:28s} mean {stats.get('mean')}  (n={stats['n']})")
+
+    anchoring = result.get("suggestion_anchoring") or {}
+    print("\n-- suggestion anchoring (READ THIS BEFORE THE CORRELATIONS) --")
+    if "note" in anchoring:
+        print(f"   {anchoring['note']}")
+    for level in ("all", "shown", "hidden", "unknown"):
+        stats = anchoring.get(level)
+        if stats:
+            print(f"   {level:8s} n={stats['n']:3d}  agreement {stats['agreement_rate']}"
+                  f"  spearman {stats['spearman_suggestion_vs_human']}")
+    if (anchoring.get("shown") or {}).get("n") and not (anchoring.get("hidden") or {}).get("n"):
+        print("   every labelled row saw the suggestion: there is no unanchored "
+              "subset to compare against.")
+
+    clustering = result.get("question_clustering") or {}
+    if clustering:
+        print(f"\n-- clustering -- {clustering['rows']} passages from "
+              f"{clustering['questions_represented']} questions "
+              f"(max {clustering['rows_per_question']['max']} from one question); "
+              f"no clustering correction is applied")
     print(f"\nwritten to {out}")
     return 0
 
@@ -294,6 +330,50 @@ def cmd_diagnostics(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_audit(args: argparse.Namespace) -> int:
+    """Read-only integrity audit. Opens files, changes nothing."""
+    sheet = args.sheet or os.path.join(DEFAULT_OUT, "annotation_sheet.jsonl")
+    manifest = args.manifest or os.path.join(DEFAULT_OUT, "sample_manifest.json")
+    key = args.key or os.path.join(DEFAULT_OUT, "annotation_key.jsonl")
+    comparison_manifest = os.path.join(os.path.dirname(args.per_question), "manifest.json")
+    frozen_meta = f"{os.path.splitext(args.frozen)[0]}.meta.json" if args.frozen else ""
+
+    for path in (sheet, manifest, args.per_question, comparison_manifest):
+        if not os.path.isfile(path):
+            print(f"ERROR: not found: {path}")
+            return 2
+
+    report = run_audit(sheet, args.per_question, manifest, comparison_manifest,
+                       key_path=key, frozen_meta_path=frozen_meta)
+
+    section = ""
+    for finding in report["findings"]:
+        if finding["status"] == "INFO":
+            continue
+        if finding["section"] != section:
+            section = finding["section"]
+            print(f"\n-- {section} " + "-" * (60 - len(section)))
+        print(f"  {finding['status']:5s} {finding['check']}")
+        if finding["detail"]:
+            print(f"        {finding['detail']}")
+
+    integrity = report["integrity"]
+    print(f"\n-- integrity " + "-" * 49)
+    print(f"  rows                {integrity['rows']}")
+    print(f"  label distribution  {integrity['label_distribution']}")
+    print(f"  sheet sha256        {integrity['annotation_sheet_sha256']}")
+    print(f"  label fingerprint   {integrity['label_fingerprint']}")
+    print("        (the fingerprint covers annotation_id and human_label only, so it\n"
+          "         changes if a label changes but not if whitespace moves)")
+
+    print(f"\n{report['counts']}")
+    print(f"VERDICT: {report['verdict']}")
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
+        print(f"\nwritten to {_write_json(os.path.join(args.out, 'audit_report.json'), report)}")
+    return 1 if report["verdict"] == "FAIL" else 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -324,6 +404,13 @@ def main(argv=None) -> int:
 
     diag = common(sub.add_parser("diagnostics", help="offline matched-k / component / time splits"))
     diag.set_defaults(func=cmd_diagnostics, frozen="")
+
+    aud = common(sub.add_parser("audit", help="read-only integrity audit of the study"),
+                 frozen=True)
+    aud.add_argument("--sheet", default="")
+    aud.add_argument("--key", default="")
+    aud.add_argument("--manifest", default="")
+    aud.set_defaults(func=cmd_audit)
 
     args = parser.parse_args(argv)
     return args.func(args)

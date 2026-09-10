@@ -345,6 +345,99 @@ def _summary(values: Sequence[float]) -> Dict[str, Any]:
     }
 
 
+def suggestion_anchoring(rows: Sequence[Dict[str, Any]],
+                         human: Sequence[int]) -> Dict[str, Any]:
+    """How far the human labels track the suggestion the annotator was shown.
+
+    This is not a curiosity, it is the main threat to the headline result. The
+    interface's suggestion is lexical overlap between question and passage;
+    SCAF's support term sigma is *also* lexical overlap. If the annotator largely
+    pressed whatever the suggestion said, then a sigma-versus-human correlation
+    is partly an artefact of the interface rather than a measurement of SCAF, and
+    since sigma is the term carrying SCAF's overall score, so is that.
+
+    Nothing here can *remove* the anchoring; it can only make its size visible.
+    Read a high ``agreement_rate`` as a warning about the labels, never as
+    confirmation that the suggestion was right.
+
+    ``shown`` and ``hidden`` are split on ``ai_suggestion_shown``, which the
+    interface writes on every row it saves. Rows annotated before that field
+    existed, or by hand, report under ``unknown``.
+    """
+    paired = [(r, h) for r, h in zip(rows, human)
+              if str(r.get("ai_suggested_label", "")).strip().isdigit()]
+    out: Dict[str, Any] = {
+        "rows_with_a_recorded_suggestion": len(paired),
+        "rows_without_a_recorded_suggestion": len(rows) - len(paired),
+    }
+    if not paired:
+        out["note"] = ("no ai_suggested_label on any row: either the sheet was "
+                       "filled in by hand, or it predates the annotation "
+                       "interface. Anchoring cannot be assessed from this file.")
+        return out
+
+    def _shown(record: Dict[str, Any]) -> str:
+        value = record.get("ai_suggestion_shown")
+        return {True: "shown", False: "hidden"}.get(value, "unknown")
+
+    groups: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
+    for record, label in paired:
+        groups[_shown(record)].append(
+            (int(str(record["ai_suggested_label"]).strip()), label))
+    groups["all"] = [pair for key in ("shown", "hidden", "unknown")
+                     for pair in groups.get(key, [])]
+
+    for key in ("all", "shown", "hidden", "unknown"):
+        pairs = groups.get(key) or []
+        if not pairs:
+            continue
+        agree = sum(1 for a, h in pairs if a == h)
+        out[key] = {
+            "n": len(pairs),
+            "agreement_rate": round(agree / len(pairs), 4),
+            "mean_signed_difference": round(
+                sum(h - a for a, h in pairs) / len(pairs), 4),
+            "human_above_suggestion": sum(1 for a, h in pairs if h > a),
+            "human_below_suggestion": sum(1 for a, h in pairs if h < a),
+            "spearman_suggestion_vs_human": spearman([a for a, _ in pairs],
+                                                     [h for _, h in pairs]),
+            "suggestion_distribution": dict(sorted(Counter(
+                a for a, _ in pairs).items())),
+        }
+
+    out["guard"] = (
+        "A high agreement rate does NOT validate the suggestion rule. It means "
+        "the labels are not independent of it, which inflates any association "
+        "between the human label and SCAF's lexical support term. Rows annotated "
+        "with the suggestion hidden are the only ones free of this effect; if "
+        "there are none, the whole sample carries it.")
+    return out
+
+
+def question_clustering(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """How the sampled passages group by question.
+
+    Passages drawn from the same question are not independent observations: they
+    share a query, a retrieval, and whatever makes that question easy or hard.
+    The correlations reported here treat all rows as exchangeable, so the
+    effective sample size is nearer the number of questions than the number of
+    rows. This block records the sizes so a reader can see the gap rather than
+    having to assume it away.
+    """
+    per_question = Counter(str(r.get("qid", "")) for r in rows)
+    sizes = sorted(per_question.values())
+    return {
+        "rows": len(rows),
+        "questions_represented": len(per_question),
+        "rows_per_question": {"min": sizes[0] if sizes else 0,
+                              "max": sizes[-1] if sizes else 0,
+                              "mean": round(sum(sizes) / len(sizes), 4) if sizes else 0},
+        "guard": ("rows within a question are not independent; the reported n is "
+                  "a count of passages, not of independent observations, and no "
+                  "clustering correction is applied"),
+    }
+
+
 def analyse(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     """The evidence-quality analysis. Requires completed labels.
 
@@ -408,6 +501,9 @@ def analyse(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     ):
         out["disagreement_cases"][name] = _summary(
             [h for r, h in zip(labelled, human) if predicate(r)])
+
+    out["suggestion_anchoring"] = suggestion_anchoring(labelled, human)
+    out["question_clustering"] = question_clustering(labelled)
 
     out["interpretation_guard"] = (
         "Rank association is the primary result: it asks whether the continuous "
