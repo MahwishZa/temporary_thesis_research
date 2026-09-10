@@ -52,6 +52,13 @@ SUITES: dict[str, tuple[Path, list[str]]] = {
         ROOT,
         [sys.executable, "-m", "pytest", "architecture/scaf/tests"],
     ),
+    # Post-hoc analysis of the completed comparison. Reads saved artifacts only;
+    # imports neither arm, so it has no stake in the registry problem above and
+    # could share a process -- it gets its own for symmetry with the rest.
+    "analysis": (
+        ROOT,
+        [sys.executable, "-m", "pytest", "experiments/analysis/tests"],
+    ),
 }
 
 
