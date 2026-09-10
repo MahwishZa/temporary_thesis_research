@@ -1,0 +1,229 @@
+{
+  "matched_context_budget": {
+    "k": {
+      "1": {
+        "mean_jaccard": 0.0,
+        "passages_per_arm_per_question": 1,
+        "possible_total": 30,
+        "questions": 30,
+        "shared_passages_total": 0
+      },
+      "3": {
+        "mean_jaccard": 0.0533,
+        "passages_per_arm_per_question": 3,
+        "possible_total": 90,
+        "questions": 30,
+        "shared_passages_total": 8
+      },
+      "5": {
+        "mean_jaccard": 0.1056,
+        "passages_per_arm_per_question": 5,
+        "possible_total": 150,
+        "questions": 30,
+        "shared_passages_total": 27
+      },
+      "8": {
+        "mean_jaccard": 0.2156,
+        "passages_per_arm_per_question": 8,
+        "possible_total": 240,
+        "questions": 30,
+        "shared_passages_total": 82
+      }
+    },
+    "note": "top-k by each arm's own score, same frozen candidates and ordering; no rerun"
+  },
+  "provenance": {
+    "created_utc": "2026-09-10T06:21:33Z",
+    "decisions": 600,
+    "frozen_set_digest": null,
+    "retrieval_is_medcpt": null,
+    "schema_version": "evidence-quality-v1",
+    "source_frozen": null,
+    "source_per_question": "/home/user/thesis_research/experiments/results/rag2_vs_scaf_alzheimer/comparison_scientific/per_question.jsonl"
+  },
+  "qualitative_cases": {
+    "both_admit_highest_scaf": [
+      {
+        "canonical_date": "2025-12-23",
+        "chunk_id": "PMC12727820.1#s4.1.w1",
+        "qid": "alz-028",
+        "rag2_admitted": true,
+        "rag2_score": 0.5242500305175781,
+        "scaf_admitted": true,
+        "scaf_score": 0.5853054339498559,
+        "source_category": "pmc-fulltext"
+      },
+      {
+        "canonical_date": "2025-05",
+        "chunk_id": "PMID40202055#abs.w2",
+        "qid": "alz-027",
+        "rag2_admitted": true,
+        "rag2_score": 0.5481255054473877,
+        "scaf_admitted": true,
+        "scaf_score": 0.57449047933561,
+        "source_category": "pubmed-abstract"
+      }
+    ],
+    "neither_admits_highest_rag2": [
+      {
+        "canonical_date": "2023",
+        "chunk_id": "PMC10200198.1#s6.w1",
+        "qid": "alz-001",
+        "rag2_admitted": false,
+        "rag2_score": 0.4665987491607666,
+        "scaf_admitted": false,
+        "scaf_score": 0.36607011261135514,
+        "source_category": "pmc-fulltext"
+      },
+      {
+        "canonical_date": "2021",
+        "chunk_id": "PMC8545868.1#s3.3.w3",
+        "qid": "alz-022",
+        "rag2_admitted": false,
+        "rag2_score": 0.4659608006477356,
+        "scaf_admitted": false,
+        "scaf_score": 0.25076601938044396,
+        "source_category": "pmc-fulltext"
+      }
+    ],
+    "neither_admits_highest_scaf": [
+      {
+        "canonical_date": "2023",
+        "chunk_id": "PMC10113481.1#s4.w1",
+        "qid": "alz-022",
+        "rag2_admitted": false,
+        "rag2_score": 0.361312597990036,
+        "scaf_admitted": false,
+        "scaf_score": 0.4493014837069071,
+        "source_category": "pmc-fulltext"
+      },
+      {
+        "canonical_date": "2023-09",
+        "chunk_id": "PMID37602995#abs.w1",
+        "qid": "alz-029",
+        "rag2_admitted": false,
+        "rag2_score": 0.25555551052093506,
+        "scaf_admitted": false,
+        "scaf_score": 0.44882361929798925,
+        "source_category": "pubmed-abstract"
+      }
+    ],
+    "rag2_admits_scaf_rejects": [],
+    "rule": [
+      "highest and lowest scoring 2 per category; categories are symmetric between arms"
+    ],
+    "scaf_admits_rag2_rejects_highest_scaf": [
+      {
+        "canonical_date": "2024-11-01",
+        "chunk_id": "PMC11564805.1#s4.5.w1",
+        "qid": "alz-030",
+        "rag2_admitted": false,
+        "rag2_score": 0.34667953848838806,
+        "scaf_admitted": true,
+        "scaf_score": 0.9552001482852539,
+        "source_category": "pmc-fulltext"
+      },
+      {
+        "canonical_date": "2025-06",
+        "chunk_id": "PMC12276858.1#s4.1.w1",
+        "qid": "alz-009",
+        "rag2_admitted": false,
+        "rag2_score": 0.39514514803886414,
+        "scaf_admitted": true,
+        "scaf_score": 0.89,
+        "source_category": "pmc-fulltext"
+      }
+    ],
+    "scaf_admits_rag2_rejects_lowest_scaf": [
+      {
+        "canonical_date": "2025-05",
+        "chunk_id": "PMID39999928#abs.w1",
+        "qid": "alz-021",
+        "rag2_admitted": false,
+        "rag2_score": 0.34774476289749146,
+        "scaf_admitted": true,
+        "scaf_score": 0.45069523241725856,
+        "source_category": "pubmed-abstract"
+      },
+      {
+        "canonical_date": "2022-06",
+        "chunk_id": "PMID35649647#abs.w2",
+        "qid": "alz-028",
+        "rag2_admitted": false,
+        "rag2_score": 0.35409796237945557,
+        "scaf_admitted": true,
+        "scaf_score": 0.4525396139850559,
+        "source_category": "pubmed-abstract"
+      }
+    ]
+  },
+  "scaf_component_diagnostics": {
+    "caveat": "offline diagnostic; rho is not implemented (w=0) and is absent from every variant",
+    "threshold": 0.45,
+    "variants": {
+      "full_scaf": {
+        "admitted": 575,
+        "of": 600,
+        "rate": 0.958333,
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "support": 0.5
+        }
+      },
+      "support_authority": {
+        "admitted": 147,
+        "of": 600,
+        "rate": 0.245,
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.0,
+          "support": 0.5
+        }
+      },
+      "support_currency": {
+        "admitted": 478,
+        "of": 600,
+        "rate": 0.796667,
+        "weights": {
+          "authority": 0.0,
+          "currency": 0.3,
+          "support": 0.5
+        }
+      },
+      "support_only": {
+        "admitted": 426,
+        "of": 600,
+        "rate": 0.71,
+        "weights": {
+          "authority": 0.0,
+          "currency": 0.0,
+          "support": 1.0
+        }
+      }
+    }
+  },
+  "time_sensitivity_split": {
+    "groups": {
+      "False": {
+        "decisions": 120,
+        "mean_gamma_currency": 1.0,
+        "mean_rag2_score": 0.3186,
+        "mean_scaf_score": 0.6514,
+        "questions": 6,
+        "rag2_admitted": 1,
+        "scaf_admitted": 120
+      },
+      "True": {
+        "decisions": 480,
+        "mean_gamma_currency": 0.8275,
+        "mean_rag2_score": 0.3318,
+        "mean_scaf_score": 0.6268,
+        "questions": 24,
+        "rag2_admitted": 3,
+        "scaf_admitted": 455
+      }
+    },
+    "note": "flag taken from the committed question set; no classification invented here"
+  }
+}
