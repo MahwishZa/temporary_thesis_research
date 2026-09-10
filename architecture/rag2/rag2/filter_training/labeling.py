@@ -23,7 +23,7 @@ confidence is dropped rather than labelled.
 consistently yielded the best performance and was therefore fixed across all our
 experiments"). Whether that quantile is taken globally or per question is not
 stated; ``tau_scope`` selects, defaulting to global. See
-docs/reproduction/rag2_reproduction.md section 5.5.
+docs/rag2_reproduction.md section 5.5.
 
 Labels are produced per (question, snippet) pair, each snippet evaluated
 individually -- stated in the paper's Limitations.

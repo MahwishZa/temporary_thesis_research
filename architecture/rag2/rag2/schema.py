@@ -4,7 +4,7 @@ These types are deliberately dependency-free (stdlib only) so that the
 orchestration, caching, labeling and evaluation logic can be imported and tested
 without torch/faiss/transformers present.
 
-Provenance policy (see docs/reproduction/rag2_reproduction.md section 4.1): ``Evidence``
+Provenance policy (see docs/rag2_reproduction.md section 4.1): ``Evidence``
 carries document/passage identifiers, the source corpus and free-form metadata
 such as publication information whenever the corpus supplies them. **No baseline
 component reads any of it.** Only ``Evidence.text`` reaches the reranker, the
@@ -218,7 +218,7 @@ def format_options(options: Mapping[str, str], template: str = "{letter}) {text}
     The paper never states the option format; the released training artifact
     (classifier/data/medqa/llama3_cot/5%-train.json) uses ``A) ... B) ...``
     appended inline after the question stem, which is what this reproduces.
-    See docs/reproduction/rag2_reproduction.md section 3.1.
+    See docs/rag2_reproduction.md section 3.1.
     """
     return " ".join(
         template.format(letter=letter, text=options[letter]) for letter in sorted(options)

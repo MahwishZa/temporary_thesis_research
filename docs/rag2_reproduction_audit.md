@@ -111,8 +111,8 @@ already keeps them apart. Integrated at `rag2/`:
 | `architecture/rag2/configs/` | 10 experiment configs (YAML, with inheritance) | this work |
 | `architecture/rag2/scripts/` | 8 scripts — one CLI per stage, plus the smoke test and its fixture builder | this work |
 | `architecture/rag2/tests/` | 15 test modules | this work |
-| `docs/reproduction/rag2_reproduction.md` | the reproduction's own specification, ~700 lines | this work |
-| `docs/reproduction/reproduction_results.md` | results template, **blank — nothing run yet** | this work |
+| `docs/rag2_reproduction.md` | the reproduction's own specification, ~700 lines | this work |
+| `THESIS.md` | results template, **blank — nothing run yet** | this work |
 
 Reproduction package layout:
 
@@ -404,7 +404,7 @@ not to rewrite what is correct.
 
 ### 6.1 A documentation claim that was not true (fixed)
 
-Both `architecture/rag2/rag2/filtering/rag2_filter.py` and `docs/reproduction/rag2_reproduction.md` §5.6 stated
+Both `architecture/rag2/rag2/filtering/rag2_filter.py` and `docs/rag2_reproduction.md` §5.6 stated
 that `tests/test_filter_scoring.py` "pins the equivalence" between the
 single-forward-pass scoring path and the release's
 `generate(..., output_scores=True).scores[0]`. **It does not.** That file's only
@@ -592,7 +592,7 @@ have, and I did not fabricate a run of any of them:
 
 **Not run, and not runnable here:** the reproduction over real data. There are no
 measured accuracy numbers in this repository, and
-`docs/reproduction/reproduction_results.md` correctly says "**Status: not yet run**" with
+`THESIS.md` correctly says "**Status: not yet run**" with
 every result cell blank and an explicit instruction to "leave a row blank rather
 than estimating it". I verified that document contains no fabricated results.
 
@@ -625,7 +625,7 @@ disqualifying:
 What must happen before baseline numbers exist, in order: build the MedCPT index
 (running separately) → generate rationales → retrieve and cache → build ΔPPL
 labels → train the filter → run the pipeline → evaluate → record in
-`docs/reproduction/reproduction_results.md` with manifest fingerprints.
+`THESIS.md` with manifest fingerprints.
 
 ---
 
@@ -656,7 +656,7 @@ labels → train the filter → run the pipeline → evaluate → record in
 
 **Known gaps in the artifact itself:**
 
-* `docs/reproduction/reproduction_results.md` is a blank template.
+* `THESIS.md` is a blank template.
 * The committed `data/corpora/pmc/chunks/chunk_stats.json` records a **partial** container run
   (60,874 chunks over 76 parsed records, most documents abstract-only), not the
   production Windows run reported as 42,964 documents / 781,563 chunks / 773,183

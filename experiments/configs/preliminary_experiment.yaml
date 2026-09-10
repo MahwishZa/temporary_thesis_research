@@ -76,7 +76,7 @@ arm_a:
   # file does not describe a run that did not happen. Neither field is read by
   # the runner -- it records arm_a_checkpoint_identity from the checkpoint on
   # disk -- so an unedited base_model misleads a reader without failing a check.
-  # See docs/runbooks/windows_experiment_runbook.md sections 4A/5A/6A.
+  # See docs/windows_runbook.md sections 4A/5A/6A.
   base_model: google/flan-t5-large  # paper 4.2, 770M
   # ENVIRONMENT-SPECIFIC: produced by
   # architecture/rag2/scripts/04_train_filter.py --select.
@@ -154,4 +154,4 @@ generation:
 outputs:
   per_question: experiments/runs/per_question.jsonl
   manifest: experiments/runs/manifest.json
-  report: docs/experiments/preliminary_rag2_vs_scaf.md
+  report: THESIS.md

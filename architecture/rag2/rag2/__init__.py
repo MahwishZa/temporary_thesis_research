@@ -1,7 +1,7 @@
 """Reproduction of the original RAG2 system.
 
 RAG2: Rationale-Guided Retrieval Augmented Generation for Medical Question
-Answering (Sohn et al., NAACL 2025). See docs/reproduction/rag2_reproduction.md for what the
+Answering (Sohn et al., NAACL 2025). See docs/rag2_reproduction.md for what the
 paper specifies, what it leaves open, and every assumption this code makes.
 
 This package is the reproduction. The authors' released code is kept unmodified

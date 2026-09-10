@@ -9,7 +9,7 @@ paper's corpora and benchmark files are not redistributed with this repository;
 point ``dataset.path`` at your own copy. Split sizes are asserted against
 Table 1 when ``options.assert_size`` is set, so a wrong file is caught early.
 
-Note on MedMCQA (documented assumption, see docs/reproduction/rag2_reproduction.md 7.1): the
+Note on MedMCQA (documented assumption, see docs/rag2_reproduction.md 7.1): the
 official test split is unlabelled, and the paper's 6,150 test items match the
 *validation* split. ``split_map`` therefore maps ``test -> dev`` by default.
 """

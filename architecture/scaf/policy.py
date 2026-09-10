@@ -34,6 +34,11 @@ rather than hidden:
   needs cross-passage inference. ``w_corroboration`` defaults to 0 and every
   record reports ``corroboration_status: "not_implemented"``. It is kept in the
   weight map so the interface does not change when it arrives.
+* **Supersession is only detected where the corpus states it.** The thesis's
+  three-state currency has a "superseded" state discounted by delta. Nothing in
+  the corpus marks one document as superseding another, so a passage is
+  superseded here only when its own metadata says so. Absence of the state is
+  reported as ``supersession: "unknown"``, never as "current".
 
 The rho correction
 ------------------
@@ -51,11 +56,6 @@ would both fabricate a parameter and violate fairness guarantee 5 (no test-set
 tuning). ``w_rho`` must be selected on validation data and frozen before any
 test run. Until then rho is *recorded* on every decision so its effect can be
 measured (ablation A11) rather than assumed.
-* **Supersession is only detected where the corpus states it.** The thesis's
-  three-state currency has a "superseded" state discounted by delta. Nothing in
-  the corpus marks one document as superseding another, so a passage is
-  superseded here only when its own metadata says so. Absence of the state is
-  reported as ``supersession: "unknown"``, never as "current".
 
 Authority is a *tested variable*, never a constant
 --------------------------------------------------
@@ -155,7 +155,7 @@ class SupportScorer:
     It is deliberately behind one small interface so the entailment model can
     replace it without touching the admission policy.
 
-    Fix to the v1 collapse (see docs/experiments/preliminary_rag2_vs_scaf.md, example E)
+    Fix to the v1 collapse (see THESIS.md, example E)
     -------------------------------------------------------------------------
     v1 computed IDF **over the candidate set**. When retrieval does its job every
     candidate is on-topic, so the question's own terms appear in all of them, IDF

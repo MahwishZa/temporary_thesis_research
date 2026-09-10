@@ -122,7 +122,7 @@ def build_eval_command(
 ) -> List[str]:
     """argv for ``classifier/run_classifier.py`` in evaluation mode.
 
-    Note (docs/reproduction/rag2_reproduction.md section 5.7): this path emits one prediction
+    Note (docs/rag2_reproduction.md section 5.7): this path emits one prediction
     per overflow *feature* while zipping against per-*example* ids, so its
     accuracy is unreliable whenever an input exceeds ``max_seq_length``. Prefer
     ``rag2.filtering.rag2_filter`` plus ``rag2.evaluation.filter_metrics`` for

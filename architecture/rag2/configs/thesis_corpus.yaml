@@ -3,7 +3,7 @@
 # Inherit from this file rather than corpora.example.yaml when running the
 # baseline on the Alzheimer/dementia corpus under data/corpora/pmc/. It changes
 # only where evidence comes from; every method-level setting stays at the value
-# docs/reproduction/rag2_reproduction.md justifies from the paper.
+# docs/rag2_reproduction.md justifies from the paper.
 #
 # Prerequisites, both built on the machine holding the MedCPT weights:
 #     python preprocessing/pmc/build_chunks.py
@@ -22,7 +22,7 @@
 #
 # Balanced retrieval (paper section 3.4) draws an equal quota from each corpus.
 # The paper has four; this corpus has three source categories, so the quota is
-# split three ways. docs/reproduction/rag2_reproduction_audit.md section 4
+# split three ways. docs/rag2_reproduction_audit.md section 4
 # records what that substitution does and does not change.
 
 experiment:

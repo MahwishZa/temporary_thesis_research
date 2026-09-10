@@ -92,7 +92,7 @@ def main() -> int:
         print(f"paper {args.paper}: no-RAG {no_rag} / RAG2 {rag2}  ->  reproduction delta {observed - rag2:+.1f}")
         print(
             "A gap is expected and must be explained, not tuned away. Work through "
-            "docs/reproduction/rag2_reproduction.md section 11 in order (corpus, reconstructed filter "
+            "docs/rag2_reproduction.md section 11 in order (corpus, reconstructed filter "
             "checkpoint, answer prompt, rerank query, tau population, model versions)."
         )
 
