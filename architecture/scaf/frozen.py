@@ -283,17 +283,27 @@ def read_meta(path: str) -> Optional[Dict[str, Any]]:
 
 
 def from_rag2_candidate_sets(candidate_sets: Iterable[Any],
-                             questions: Dict[str, Any]) -> List[FrozenCandidateSet]:
+                             questions: Dict[str, Any],
+                             depth: int = 20) -> List[FrozenCandidateSet]:
     """Convert ``rag2.schema.CandidateSet``s (the baseline's own upstream output).
 
     This is the bridge: the real run produces candidates through the baseline's
     MedCPT retrieval and reranking, and freezes them here without re-retrieving.
+
+    ``depth`` keeps the first N candidates per question, in the order the cache
+    already holds them. It is a truncation of an existing ranking, never a
+    reordering and never a re-ranking: the cache arrives sorted by the baseline's
+    MedCPT cross-encoder, so ``[:depth]`` is exactly the top-N of that ranking.
+    Previously the whole cache was frozen regardless, so a cache built at a
+    different ``retrieval.final_top_k`` silently produced a frozen set of that
+    size while the sidecar recorded the requested depth -- the two could
+    disagree, and the manifest's ``candidate_depth`` was then wrong.
     """
     out: List[FrozenCandidateSet] = []
     for cs in candidate_sets:
         question = questions.get(cs.qid)
         candidates: List[FrozenCandidate] = []
-        for rank, ev in enumerate(cs.candidates, start=1):
+        for rank, ev in enumerate(cs.candidates[:depth], start=1):
             meta = dict(ev.metadata or {})
             candidates.append(FrozenCandidate(
                 chunk_id=str(ev.passage_id or ""),
