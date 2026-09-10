@@ -29,6 +29,7 @@ from scaf.policy import (
     AuthorityScorer,
     CurrencyScorer,
     SCAFFilter,
+    RerankScorer,
     SupportScorer,
     _year_fraction,
     tokenize,
@@ -281,7 +282,7 @@ class TestInspectability:
     def test_every_decision_explains_itself(self):
         decisions = scaf_filter().decide(question(), [evidence()])
         detail = decisions[0].detail
-        for key in ("scaf_score", "sigma_support", "gamma_currency", "rho_corroboration",
+        for key in ("scaf_score", "sigma_support", "gamma_currency", "rho_rerank",
                     "tau_authority", "weights", "threshold", "gate", "reason",
                     "support_method", "corroboration_status", "support_detail",
                     "currency_detail", "authority_detail"):
@@ -293,6 +294,75 @@ class TestInspectability:
         assert detail["corroboration_status"] == "not_implemented"
         assert detail["weights"]["corroboration"] == 0.0
         assert "lexical" in detail["support_method"]
+
+
+# ------------------------------------------------------------------- rho
+class TestRerankTerm:
+    """rho is the rank-normalised reranker score, not corroboration.
+
+    The proposal's notation table (4.1) defines it that way and 4.5 explains the
+    rank normalisation. An earlier version read it as corroboration and pinned
+    it to 0.0, which silently removed the term from A(s) altogether.
+    """
+
+    def test_rho_is_the_rank_normalised_reranker_score(self):
+        scorer = RerankScorer()
+        assert scorer.score(1, 20)[0] == 1.0
+        assert scorer.score(20, 20)[0] == 0.0
+        assert scorer.score(10, 20)[0] == pytest.approx(10 / 19)
+
+    def test_rank_normalisation_is_comparable_across_query_depths(self):
+        """The point of rank over min-max: one threshold means one thing."""
+        top = RerankScorer().score(1, 5)[0]
+        assert top == RerankScorer().score(1, 50)[0] == 1.0
+
+    def test_a_fixed_depth_overrides_the_per_query_list_length(self):
+        assert RerankScorer(depth=20).score(10, 5)[0] == pytest.approx(10 / 19)
+
+    def test_a_missing_rank_is_neutral_not_zero(self):
+        """rho = 0 would penalise a candidate for a bookkeeping gap."""
+        value, detail = RerankScorer().score(None, 20)
+        assert value == 0.5
+        assert detail["basis"] == "unavailable"
+
+    def test_rho_is_recorded_on_every_decision(self):
+        candidates = [evidence(f"c{i}") for i in range(5)]
+        details = [d.detail for d in scaf_filter().decide(question(), candidates)]
+        assert [d["rho_rerank"] for d in details] == [1.0, 0.75, 0.5, 0.25, 0.0]
+        assert all(d["rerank_detail"]["normalisation"] == "rank" for d in details)
+
+    def test_rho_defaults_to_zero_weight_so_the_fix_changes_no_decision(self):
+        """The correction records rho; it must not silently re-tune admission."""
+        candidates = [evidence(f"c{i}") for i in range(5)]
+        details = [d.detail for d in scaf_filter().decide(question(), candidates)]
+        for d in details:
+            w = d["weights"]
+            expected = (w["support"] * d["sigma_support"]
+                        + w["currency"] * d["gamma_currency"]
+                        + w["authority"] * d["tau_authority"])
+            assert d["scaf_score"] == pytest.approx(expected, abs=1e-6)
+        assert details[0]["weights"]["rerank"] == 0.0
+
+    def test_a_configured_rho_weight_actually_moves_the_score(self):
+        candidates = [evidence(f"c{i}") for i in range(5)]
+        weighted = scaf_filter(weights={"support": 0.5, "currency": 0.3,
+                                        "authority": 0.2, "rerank": 0.4})
+        details = [d.detail for d in weighted.decide(question(), candidates)]
+        gap = details[0]["scaf_score"] - details[-1]["scaf_score"]
+        assert gap == pytest.approx(0.4, abs=1e-6)   # rho spans 1.0 -> 0.0
+
+    def test_an_old_config_without_the_rerank_key_still_loads(self):
+        """Configs written before the correction must keep scoring identically."""
+        old = scaf_filter(weights={"support": 0.5, "currency": 0.3,
+                                   "corroboration": 0.0, "authority": 0.2})
+        detail = old.decide(question(), [evidence()])[0].detail
+        assert detail["weights"]["rerank"] == 0.0
+        assert detail["weights"]["corroboration"] == 0.0
+
+    def test_the_policy_reports_what_rho_now_means(self):
+        described = scaf_filter().describe()
+        assert described["rho_method"] == "rank-normalised-reranker-score"
+        assert described["corroboration_status"] == "not_implemented"
 
     def test_decision_record_is_json_serialisable(self):
         decisions = scaf_filter().decide(question(), [evidence()])

@@ -59,20 +59,38 @@ of *current* Alzheimer evidence.
 **The consequence is structural, and it is not something SCAF or any code change
 can fix:**
 
-1. **FRB-PAIRS cannot be constructed.** Matched older/newer evidence pairs need
-   older evidence. There are 7 pre-2020 documents in the production corpus.
+1. **FRB-PAIRS cannot be constructed *from this corpus*.** Matched older/newer
+   evidence pairs need older evidence. There are 7 pre-2020 documents in the
+   production corpus. **This is not the blocker it was recorded as** — see the
+   correction at the end of this section.
 2. **The currency term has almost no dynamic range.** γ = 2^(−age/H) over a corpus
    spanning 2021–2026 with H = 5 years varies only between about 1.0 and 0.5, and
    most of that range is unpopulated. In this run γ's median was 0.933.
 3. **A measured "recency bias" would be measuring nothing.** Both arms admit
    almost exclusively post-2020 evidence because that is all there is.
 
-This needs a supervisor decision before the main experiments, not after.
-Options, in rough order of cost: widen the acquisition window for a *comparison
-stratum* only (leaving the existing corpus frozen); reframe the research question
-around supersession and retraction within the current window rather than age;
-or construct FRB-PAIRS from an external older-evidence source. **§7 records this
-as the primary open question.** Everything else below works.
+### Correction (audit against the proposal)
+
+The three "options" this section originally listed — widen the acquisition
+window, reframe around supersession, or source FRB-PAIRS externally — were
+recorded as awaiting a supervisor decision. **The proposal already decides.**
+
+§5.2 specifies FRB-PAIRS as derived from **MedChangeQA** (Vladika et al.,
+Findings of EMNLP 2025), behind a *provenance firewall*: the primary claim must
+rest on the externally authored lane, and thesis-curated Alzheimer material
+supports replication and case study only. The proposal adopted that firewall as
+a correction to an earlier draft of itself, in which items and corpus shared
+authorship and "a positive result [was] unfalsifiable by construction".
+
+So the third option is not an option — it is the specification, and the first
+two would violate the firewall. Points 2 and 3 above stand: the currency term
+genuinely has little dynamic range here, and an age comparison *within this
+corpus* would measure nothing. Point 1 does not block the probe.
+
+The probe is now implemented in
+[`experiments/recency_bias/`](../../experiments/recency_bias/README.md) with the
+permutation control and the blocking gate; it needs MedChangeQA and the
+already-trained filter, not a corpus rebuild. Everything else below works.
 
 ---
 

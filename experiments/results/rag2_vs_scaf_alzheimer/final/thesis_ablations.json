@@ -1,0 +1,994 @@
+{
+  "ablations": {
+    "ablations": [
+      {
+        "half_life_years": 5.0,
+        "id": "RUN",
+        "name": "As run (SCAF, lexical support)",
+        "question_answered": "what the scientific run did",
+        "renormalised": false,
+        "summary": {
+          "admission_rate": 0.958333,
+          "admitted": 575,
+          "candidates": 600,
+          "mean_admitted_per_question": 19.167,
+          "per_question_admission_rate": {
+            "alz-001": 0.8,
+            "alz-002": 1.0,
+            "alz-003": 0.95,
+            "alz-004": 1.0,
+            "alz-005": 0.9,
+            "alz-006": 1.0,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 1.0,
+            "alz-010": 0.95,
+            "alz-011": 0.9,
+            "alz-012": 1.0,
+            "alz-013": 0.95,
+            "alz-014": 0.95,
+            "alz-015": 1.0,
+            "alz-016": 1.0,
+            "alz-017": 0.95,
+            "alz-018": 1.0,
+            "alz-019": 0.85,
+            "alz-020": 1.0,
+            "alz-021": 1.0,
+            "alz-022": 0.8,
+            "alz-023": 1.0,
+            "alz-024": 1.0,
+            "alz-025": 1.0,
+            "alz-026": 0.85,
+            "alz-027": 1.0,
+            "alz-028": 1.0,
+            "alz-029": 0.9,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 0,
+          "newly_admitted": 0,
+          "newly_rejected": 0,
+          "unchanged": 600
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.0,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A4",
+        "name": "No filter",
+        "question_answered": "does any filter help?",
+        "renormalised": false,
+        "summary": {
+          "admission_rate": 1.0,
+          "admitted": 600,
+          "candidates": 600,
+          "mean_admitted_per_question": 20.0,
+          "per_question_admission_rate": {
+            "alz-001": 1.0,
+            "alz-002": 1.0,
+            "alz-003": 1.0,
+            "alz-004": 1.0,
+            "alz-005": 1.0,
+            "alz-006": 1.0,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 1.0,
+            "alz-010": 1.0,
+            "alz-011": 1.0,
+            "alz-012": 1.0,
+            "alz-013": 1.0,
+            "alz-014": 1.0,
+            "alz-015": 1.0,
+            "alz-016": 1.0,
+            "alz-017": 1.0,
+            "alz-018": 1.0,
+            "alz-019": 1.0,
+            "alz-020": 1.0,
+            "alz-021": 1.0,
+            "alz-022": 1.0,
+            "alz-023": 1.0,
+            "alz-024": 1.0,
+            "alz-025": 1.0,
+            "alz-026": 1.0,
+            "alz-027": 1.0,
+            "alz-028": 1.0,
+            "alz-029": 1.0,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.0,
+        "vs_run": {
+          "decisions_changed": 25,
+          "newly_admitted": 25,
+          "newly_rejected": 0,
+          "unchanged": 575
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.0,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A5",
+        "name": "Support only, currency disabled",
+        "question_answered": "contribution of currency",
+        "renormalised": false,
+        "summary": {
+          "admission_rate": 0.245,
+          "admitted": 147,
+          "candidates": 600,
+          "mean_admitted_per_question": 4.9,
+          "per_question_admission_rate": {
+            "alz-001": 0.1,
+            "alz-002": 0.4,
+            "alz-003": 0.35,
+            "alz-004": 0.2,
+            "alz-005": 0.15,
+            "alz-006": 0.45,
+            "alz-007": 0.35,
+            "alz-008": 0.25,
+            "alz-009": 0.3,
+            "alz-010": 0.0,
+            "alz-011": 0.0,
+            "alz-012": 0.35,
+            "alz-013": 0.3,
+            "alz-014": 0.2,
+            "alz-015": 0.65,
+            "alz-016": 0.15,
+            "alz-017": 0.05,
+            "alz-018": 0.7,
+            "alz-019": 0.35,
+            "alz-020": 0.0,
+            "alz-021": 0.0,
+            "alz-022": 0.0,
+            "alz-023": 0.15,
+            "alz-024": 0.55,
+            "alz-025": 0.0,
+            "alz-026": 0.05,
+            "alz-027": 0.25,
+            "alz-028": 0.45,
+            "alz-029": 0.05,
+            "alz-030": 0.55
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 6
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 428,
+          "newly_admitted": 0,
+          "newly_rejected": 428,
+          "unchanged": 172
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.0,
+          "rerank": 0.0,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A7",
+        "name": "Currency only, support excluded",
+        "question_answered": "contribution of support",
+        "renormalised": false,
+        "summary": {
+          "admission_rate": 0.008333,
+          "admitted": 5,
+          "candidates": 600,
+          "mean_admitted_per_question": 0.167,
+          "per_question_admission_rate": {
+            "alz-001": 0.0,
+            "alz-002": 0.0,
+            "alz-003": 0.0,
+            "alz-004": 0.0,
+            "alz-005": 0.0,
+            "alz-006": 0.0,
+            "alz-007": 0.0,
+            "alz-008": 0.0,
+            "alz-009": 0.0,
+            "alz-010": 0.0,
+            "alz-011": 0.0,
+            "alz-012": 0.0,
+            "alz-013": 0.0,
+            "alz-014": 0.0,
+            "alz-015": 0.0,
+            "alz-016": 0.05,
+            "alz-017": 0.0,
+            "alz-018": 0.0,
+            "alz-019": 0.0,
+            "alz-020": 0.0,
+            "alz-021": 0.0,
+            "alz-022": 0.15,
+            "alz-023": 0.0,
+            "alz-024": 0.0,
+            "alz-025": 0.0,
+            "alz-026": 0.0,
+            "alz-027": 0.0,
+            "alz-028": 0.0,
+            "alz-029": 0.0,
+            "alz-030": 0.05
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 27
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 570,
+          "newly_admitted": 0,
+          "newly_rejected": 570,
+          "unchanged": 30
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.0,
+          "support": 0.0
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A12a",
+        "name": "Authority removed",
+        "question_answered": "contribution of source authority",
+        "renormalised": false,
+        "summary": {
+          "admission_rate": 0.796667,
+          "admitted": 478,
+          "candidates": 600,
+          "mean_admitted_per_question": 15.933,
+          "per_question_admission_rate": {
+            "alz-001": 0.5,
+            "alz-002": 1.0,
+            "alz-003": 0.9,
+            "alz-004": 0.95,
+            "alz-005": 0.75,
+            "alz-006": 0.95,
+            "alz-007": 1.0,
+            "alz-008": 0.95,
+            "alz-009": 0.95,
+            "alz-010": 0.6,
+            "alz-011": 0.55,
+            "alz-012": 1.0,
+            "alz-013": 0.95,
+            "alz-014": 0.8,
+            "alz-015": 1.0,
+            "alz-016": 0.8,
+            "alz-017": 0.55,
+            "alz-018": 0.95,
+            "alz-019": 0.75,
+            "alz-020": 0.75,
+            "alz-021": 0.5,
+            "alz-022": 0.35,
+            "alz-023": 0.8,
+            "alz-024": 1.0,
+            "alz-025": 0.7,
+            "alz-026": 0.65,
+            "alz-027": 0.8,
+            "alz-028": 0.8,
+            "alz-029": 0.7,
+            "alz-030": 0.95
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 97,
+          "newly_admitted": 0,
+          "newly_rejected": 97,
+          "unchanged": 503
+        },
+        "weights": {
+          "authority": 0.0,
+          "currency": 0.3,
+          "rerank": 0.0,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A5",
+        "name": "Support only, currency disabled (renormalised)",
+        "question_answered": "contribution of currency",
+        "renormalised": true,
+        "summary": {
+          "admission_rate": 0.705,
+          "admitted": 423,
+          "candidates": 600,
+          "mean_admitted_per_question": 14.1,
+          "per_question_admission_rate": {
+            "alz-001": 0.4,
+            "alz-002": 0.95,
+            "alz-003": 0.7,
+            "alz-004": 1.0,
+            "alz-005": 0.7,
+            "alz-006": 0.95,
+            "alz-007": 0.95,
+            "alz-008": 0.8,
+            "alz-009": 0.9,
+            "alz-010": 0.6,
+            "alz-011": 0.65,
+            "alz-012": 0.7,
+            "alz-013": 0.95,
+            "alz-014": 0.75,
+            "alz-015": 0.95,
+            "alz-016": 0.55,
+            "alz-017": 0.75,
+            "alz-018": 0.9,
+            "alz-019": 0.75,
+            "alz-020": 0.2,
+            "alz-021": 0.15,
+            "alz-022": 0.35,
+            "alz-023": 0.85,
+            "alz-024": 1.0,
+            "alz-025": 0.35,
+            "alz-026": 0.45,
+            "alz-027": 0.65,
+            "alz-028": 0.7,
+            "alz-029": 0.55,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 152,
+          "newly_admitted": 0,
+          "newly_rejected": 152,
+          "unchanged": 448
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.0,
+          "rerank": 0.0,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A7",
+        "name": "Currency only, support excluded (renormalised)",
+        "question_answered": "contribution of support",
+        "renormalised": true,
+        "summary": {
+          "admission_rate": 1.0,
+          "admitted": 600,
+          "candidates": 600,
+          "mean_admitted_per_question": 20.0,
+          "per_question_admission_rate": {
+            "alz-001": 1.0,
+            "alz-002": 1.0,
+            "alz-003": 1.0,
+            "alz-004": 1.0,
+            "alz-005": 1.0,
+            "alz-006": 1.0,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 1.0,
+            "alz-010": 1.0,
+            "alz-011": 1.0,
+            "alz-012": 1.0,
+            "alz-013": 1.0,
+            "alz-014": 1.0,
+            "alz-015": 1.0,
+            "alz-016": 1.0,
+            "alz-017": 1.0,
+            "alz-018": 1.0,
+            "alz-019": 1.0,
+            "alz-020": 1.0,
+            "alz-021": 1.0,
+            "alz-022": 1.0,
+            "alz-023": 1.0,
+            "alz-024": 1.0,
+            "alz-025": 1.0,
+            "alz-026": 1.0,
+            "alz-027": 1.0,
+            "alz-028": 1.0,
+            "alz-029": 1.0,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 25,
+          "newly_admitted": 25,
+          "newly_rejected": 0,
+          "unchanged": 575
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.0,
+          "support": 0.0
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A12a",
+        "name": "Authority removed (renormalised)",
+        "question_answered": "contribution of source authority",
+        "renormalised": true,
+        "summary": {
+          "admission_rate": 0.958333,
+          "admitted": 575,
+          "candidates": 600,
+          "mean_admitted_per_question": 19.167,
+          "per_question_admission_rate": {
+            "alz-001": 0.8,
+            "alz-002": 1.0,
+            "alz-003": 0.95,
+            "alz-004": 1.0,
+            "alz-005": 0.9,
+            "alz-006": 1.0,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 1.0,
+            "alz-010": 0.9,
+            "alz-011": 0.9,
+            "alz-012": 1.0,
+            "alz-013": 0.95,
+            "alz-014": 0.95,
+            "alz-015": 1.0,
+            "alz-016": 1.0,
+            "alz-017": 0.95,
+            "alz-018": 1.0,
+            "alz-019": 0.9,
+            "alz-020": 1.0,
+            "alz-021": 1.0,
+            "alz-022": 0.75,
+            "alz-023": 1.0,
+            "alz-024": 1.0,
+            "alz-025": 1.0,
+            "alz-026": 0.85,
+            "alz-027": 1.0,
+            "alz-028": 1.0,
+            "alz-029": 0.95,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 4,
+          "newly_admitted": 2,
+          "newly_rejected": 2,
+          "unchanged": 596
+        },
+        "weights": {
+          "authority": 0.0,
+          "currency": 0.3,
+          "rerank": 0.0,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "A12b",
+        "name": "Authority ordering inverted",
+        "question_answered": "recency against authority trade-off: is the ordering load-bearing?",
+        "renormalised": false,
+        "summary": {
+          "admission_rate": 0.973333,
+          "admitted": 584,
+          "candidates": 600,
+          "mean_admitted_per_question": 19.467,
+          "per_question_admission_rate": {
+            "alz-001": 0.8,
+            "alz-002": 1.0,
+            "alz-003": 1.0,
+            "alz-004": 1.0,
+            "alz-005": 0.95,
+            "alz-006": 1.0,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 1.0,
+            "alz-010": 0.95,
+            "alz-011": 0.95,
+            "alz-012": 1.0,
+            "alz-013": 0.95,
+            "alz-014": 1.0,
+            "alz-015": 1.0,
+            "alz-016": 1.0,
+            "alz-017": 1.0,
+            "alz-018": 1.0,
+            "alz-019": 0.95,
+            "alz-020": 1.0,
+            "alz-021": 1.0,
+            "alz-022": 0.85,
+            "alz-023": 0.95,
+            "alz-024": 1.0,
+            "alz-025": 1.0,
+            "alz-026": 0.85,
+            "alz-027": 1.0,
+            "alz-028": 1.0,
+            "alz-029": 1.0,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 15,
+          "newly_admitted": 12,
+          "newly_rejected": 3,
+          "unchanged": 585
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.0,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "RHO",
+        "name": "Corrected rho (reranker) at w=0.1",
+        "question_answered": "effect of the term the earlier implementation dropped",
+        "renormalised": true,
+        "summary": {
+          "admission_rate": 0.95,
+          "admitted": 570,
+          "candidates": 600,
+          "mean_admitted_per_question": 19.0,
+          "per_question_admission_rate": {
+            "alz-001": 0.75,
+            "alz-002": 1.0,
+            "alz-003": 1.0,
+            "alz-004": 1.0,
+            "alz-005": 0.9,
+            "alz-006": 1.0,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 1.0,
+            "alz-010": 1.0,
+            "alz-011": 0.9,
+            "alz-012": 1.0,
+            "alz-013": 0.95,
+            "alz-014": 0.9,
+            "alz-015": 1.0,
+            "alz-016": 1.0,
+            "alz-017": 0.9,
+            "alz-018": 1.0,
+            "alz-019": 0.85,
+            "alz-020": 0.95,
+            "alz-021": 0.9,
+            "alz-022": 0.8,
+            "alz-023": 1.0,
+            "alz-024": 1.0,
+            "alz-025": 1.0,
+            "alz-026": 0.85,
+            "alz-027": 1.0,
+            "alz-028": 0.85,
+            "alz-029": 1.0,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 15,
+          "newly_admitted": 5,
+          "newly_rejected": 10,
+          "unchanged": 585
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.1,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "RHO",
+        "name": "Corrected rho (reranker) at w=0.2",
+        "question_answered": "effect of the term the earlier implementation dropped",
+        "renormalised": true,
+        "summary": {
+          "admission_rate": 0.911667,
+          "admitted": 547,
+          "candidates": 600,
+          "mean_admitted_per_question": 18.233,
+          "per_question_admission_rate": {
+            "alz-001": 0.7,
+            "alz-002": 1.0,
+            "alz-003": 1.0,
+            "alz-004": 0.95,
+            "alz-005": 0.9,
+            "alz-006": 0.95,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 1.0,
+            "alz-010": 0.8,
+            "alz-011": 0.7,
+            "alz-012": 1.0,
+            "alz-013": 0.95,
+            "alz-014": 0.85,
+            "alz-015": 1.0,
+            "alz-016": 1.0,
+            "alz-017": 0.85,
+            "alz-018": 1.0,
+            "alz-019": 0.75,
+            "alz-020": 0.85,
+            "alz-021": 0.8,
+            "alz-022": 0.8,
+            "alz-023": 0.95,
+            "alz-024": 1.0,
+            "alz-025": 1.0,
+            "alz-026": 0.8,
+            "alz-027": 0.95,
+            "alz-028": 0.85,
+            "alz-029": 0.95,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 40,
+          "newly_admitted": 6,
+          "newly_rejected": 34,
+          "unchanged": 560
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.2,
+          "support": 0.5
+        }
+      },
+      {
+        "half_life_years": 5.0,
+        "id": "RHO",
+        "name": "Corrected rho (reranker) at w=0.3",
+        "question_answered": "effect of the term the earlier implementation dropped",
+        "renormalised": true,
+        "summary": {
+          "admission_rate": 0.883333,
+          "admitted": 530,
+          "candidates": 600,
+          "mean_admitted_per_question": 17.667,
+          "per_question_admission_rate": {
+            "alz-001": 0.7,
+            "alz-002": 1.0,
+            "alz-003": 0.95,
+            "alz-004": 0.9,
+            "alz-005": 0.9,
+            "alz-006": 0.95,
+            "alz-007": 1.0,
+            "alz-008": 1.0,
+            "alz-009": 0.95,
+            "alz-010": 0.8,
+            "alz-011": 0.7,
+            "alz-012": 1.0,
+            "alz-013": 0.9,
+            "alz-014": 0.85,
+            "alz-015": 1.0,
+            "alz-016": 0.95,
+            "alz-017": 0.85,
+            "alz-018": 1.0,
+            "alz-019": 0.75,
+            "alz-020": 0.8,
+            "alz-021": 0.7,
+            "alz-022": 0.7,
+            "alz-023": 0.95,
+            "alz-024": 1.0,
+            "alz-025": 0.9,
+            "alz-026": 0.7,
+            "alz-027": 0.9,
+            "alz-028": 0.85,
+            "alz-029": 0.85,
+            "alz-030": 1.0
+          },
+          "questions": 30,
+          "questions_with_no_evidence": 0
+        },
+        "threshold": 0.45,
+        "vs_run": {
+          "decisions_changed": 59,
+          "newly_admitted": 7,
+          "newly_rejected": 52,
+          "unchanged": 541
+        },
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "rerank": 0.3,
+          "support": 0.5
+        }
+      }
+    ],
+    "guard": "Admission only. No answer was generated or evaluated in any of these configurations, so none of them supports a claim about answer quality.",
+    "not_executable_here": {
+      "A1": "perplexity against entailment label -- needs both filter backbones; the trained checkpoint is not in this repository",
+      "A10": "teacher against distilled student -- no entailment teacher exists",
+      "A13": "hard supersession gate restored -- no passage is marked superseded in this corpus (supersession is 'unknown' for all 480 time-sensitive candidates), so the gate has nothing to act on",
+      "A14": "generator transfer -- needs generation",
+      "A2": "permutation control -- needs FRB-PAIRS",
+      "A3": "second backbone replication -- needs a second trained filter",
+      "A6": "prompt with and without date annotation -- needs generation",
+      "A8": "contested state removed -- the contested state is not implemented",
+      "A9": "abstention gate removed -- abstention never fired (0 questions)"
+    }
+  },
+  "admission_by_age": {
+    "by_year": [
+      {
+        "candidates": 22,
+        "rag2_admitted": 0,
+        "rag2_rate": 0.0,
+        "scaf_admitted": 19,
+        "scaf_rate": 0.863636,
+        "year": "2021"
+      },
+      {
+        "candidates": 84,
+        "rag2_admitted": 0,
+        "rag2_rate": 0.0,
+        "scaf_admitted": 78,
+        "scaf_rate": 0.928571,
+        "year": "2022"
+      },
+      {
+        "candidates": 116,
+        "rag2_admitted": 0,
+        "rag2_rate": 0.0,
+        "scaf_admitted": 105,
+        "scaf_rate": 0.905172,
+        "year": "2023"
+      },
+      {
+        "candidates": 117,
+        "rag2_admitted": 0,
+        "rag2_rate": 0.0,
+        "scaf_admitted": 115,
+        "scaf_rate": 0.982906,
+        "year": "2024"
+      },
+      {
+        "candidates": 141,
+        "rag2_admitted": 2,
+        "rag2_rate": 0.014184,
+        "scaf_admitted": 138,
+        "scaf_rate": 0.978723,
+        "year": "2025"
+      },
+      {
+        "candidates": 120,
+        "rag2_admitted": 2,
+        "rag2_rate": 0.016667,
+        "scaf_admitted": 120,
+        "scaf_rate": 1.0,
+        "year": "2026"
+      }
+    ],
+    "corpus_span": {
+      "distinct_years": 6,
+      "earliest": "2021",
+      "latest": "2026-08-25",
+      "span_years": 5.15
+    },
+    "guard": "DESCRIPTIVE ONLY, AND CONFOUNDED. These passages are not matched on claim, tier or length, so this is not the admission asymmetry the thesis defines and must not be reported as a recency-bias result. The corpus also spans only ~5 years with no pre-2021 stratum, so there is almost no age contrast to detect even descriptively.",
+    "is_frb_pairs": false
+  },
+  "as_of_year": 2026.0,
+  "reproduction_check": {
+    "all_passed": true,
+    "candidates": 600,
+    "checks": [
+      {
+        "check": "A(s) rebuilt from the recorded sub-scores for all 600",
+        "detail": "max abs error 8.00e-07",
+        "pass": true
+      },
+      {
+        "check": "every recorded admit/reject is reproduced",
+        "detail": "0 mismatches",
+        "pass": true
+      },
+      {
+        "check": "gamma regenerated from the publication date matches the run",
+        "detail": "max abs error 4.99e-07 at as_of=2026.0, H=5.0",
+        "pass": true
+      },
+      {
+        "check": "every candidate carries a reranker rank",
+        "detail": "20 distinct ranks",
+        "pass": true
+      }
+    ]
+  },
+  "run_configuration": {
+    "candidate_depth": 20,
+    "half_life_years": 5.0,
+    "threshold": 0.45,
+    "weights": {
+      "authority": 0.2,
+      "currency": 0.3,
+      "rerank": 0.0,
+      "support": 0.5
+    }
+  },
+  "sensitivity": {
+    "half_life_sweep": [
+      {
+        "admission_rate": 0.738333,
+        "admitted": 443,
+        "half_life_years": 1.0,
+        "questions_with_no_evidence": 0,
+        "vs_run": 132
+      },
+      {
+        "admission_rate": 0.868333,
+        "admitted": 521,
+        "half_life_years": 2.0,
+        "questions_with_no_evidence": 0,
+        "vs_run": 54
+      },
+      {
+        "admission_rate": 0.918333,
+        "admitted": 551,
+        "half_life_years": 3.0,
+        "questions_with_no_evidence": 0,
+        "vs_run": 24
+      },
+      {
+        "admission_rate": 0.958333,
+        "admitted": 575,
+        "half_life_years": 5.0,
+        "questions_with_no_evidence": 0,
+        "vs_run": 0
+      },
+      {
+        "admission_rate": 0.973333,
+        "admitted": 584,
+        "half_life_years": 8.0,
+        "questions_with_no_evidence": 0,
+        "vs_run": 9
+      },
+      {
+        "admission_rate": 0.976667,
+        "admitted": 586,
+        "half_life_years": 10.0,
+        "questions_with_no_evidence": 0,
+        "vs_run": 11
+      },
+      {
+        "admission_rate": 0.981667,
+        "admitted": 589,
+        "half_life_years": 20.0,
+        "questions_with_no_evidence": 0,
+        "vs_run": 14
+      }
+    ],
+    "note": "The run's threshold (0.45) and half-life (5 y) were not fitted on validation data. Fairness guarantee 5 requires they be selected and frozen before a test run; until then these sweeps are the honest statement of how much the headline admission numbers depend on them.",
+    "threshold_sweep": [
+      {
+        "admission_rate": 0.996667,
+        "admitted": 598,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.3
+      },
+      {
+        "admission_rate": 0.993333,
+        "admitted": 596,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.35
+      },
+      {
+        "admission_rate": 0.981667,
+        "admitted": 589,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.4
+      },
+      {
+        "admission_rate": 0.958333,
+        "admitted": 575,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.45
+      },
+      {
+        "admission_rate": 0.875,
+        "admitted": 525,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.5
+      },
+      {
+        "admission_rate": 0.776667,
+        "admitted": 466,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.55
+      },
+      {
+        "admission_rate": 0.618333,
+        "admitted": 371,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.6
+      },
+      {
+        "admission_rate": 0.431667,
+        "admitted": 259,
+        "questions_with_no_evidence": 0,
+        "threshold": 0.65
+      },
+      {
+        "admission_rate": 0.281667,
+        "admitted": 169,
+        "questions_with_no_evidence": 4,
+        "threshold": 0.7
+      }
+    ]
+  },
+  "source": "per_question.jsonl",
+  "variance_decomposition": {
+    "note": "Shares are of the variance of A(s) under the run's weights, treating the terms as independent; they answer 'what moves admission', not 'what matters clinically'. A term with share 0 cannot have changed a single admission decision in this run.",
+    "terms": {
+      "authority": {
+        "raw_max": 1.0,
+        "raw_mean": 0.44,
+        "raw_min": 0.4,
+        "raw_sd": 0.075166,
+        "share_of_score_variance": 0.017687,
+        "weight": 0.2,
+        "weighted_sd": 0.015033
+      },
+      "currency": {
+        "raw_max": 1.0,
+        "raw_mean": 0.862015,
+        "raw_min": 0.535887,
+        "raw_sd": 0.144501,
+        "share_of_score_variance": 0.14707,
+        "weight": 0.3,
+        "weighted_sd": 0.04335
+      },
+      "rerank": {
+        "raw_max": 1.0,
+        "raw_mean": 0.5,
+        "raw_min": 0.0,
+        "raw_sd": 0.303488,
+        "share_of_score_variance": 0.0,
+        "weight": 0.0,
+        "weighted_sd": 0.0
+      },
+      "support": {
+        "raw_max": 1.0,
+        "raw_mean": 0.570218,
+        "raw_min": 0.0,
+        "raw_sd": 0.206617,
+        "share_of_score_variance": 0.835243,
+        "weight": 0.5,
+        "weighted_sd": 0.103308
+      }
+    },
+    "weights": {
+      "authority": 0.2,
+      "currency": 0.3,
+      "rerank": 0.0,
+      "support": 0.5
+    }
+  }
+}

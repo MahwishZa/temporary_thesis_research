@@ -11,8 +11,11 @@ changed. No baseline file is modified by this module, and it lives outside
 
     sigma  SUPPORT     does the passage bear on the question?
     gamma  CURRENCY    is it current enough for a time-sensitive claim?
-    rho    CORROBORATION  is it corroborated / contested?   (NOT IMPLEMENTED, see below)
+    rho    RERANK      what did the frozen MedCPT reranker think, rank-normalised?
     tau    AUTHORITY   what is the source tier worth?
+
+    Corroboration is a *separate* concept and is still not implemented; see
+    "The rho correction" below for why the two must not be conflated.
 
 Scope of this version
 ---------------------
@@ -27,10 +30,27 @@ rather than hidden:
   and ``support_detail.idf_source`` so no reader can mistake one for the other.
   **This is the single largest approximation in SCAF and must be replaced before
   any thesis claim.**
-* **rho (corroboration/contested) is not implemented.** Detecting that two
-  passages disagree needs cross-passage inference. ``w_rho`` defaults to 0 and
-  every record reports ``corroboration: "not_implemented"``. It is in the formula
-  so the interface does not change when it arrives.
+* **Corroboration is not implemented.** Detecting that two passages disagree
+  needs cross-passage inference. ``w_corroboration`` defaults to 0 and every
+  record reports ``corroboration_status: "not_implemented"``. It is kept in the
+  weight map so the interface does not change when it arrives.
+
+The rho correction
+------------------
+An earlier version of this module read ``rho`` as *corroboration* and hard-coded
+it to ``0.0``. The proposal's notation table (Section 4.1) defines it as the
+**rank-normalised reranker score**, and Section 4.5 gives the reason for rank
+rather than min-max normalisation: so that ``A(s)`` is comparable across queries
+and one global threshold is well defined. Those are different quantities, and
+conflating them silently dropped a whole term out of the admission score.
+
+``rho`` is now computed from the frozen reranker's rank. Its weight still
+defaults to **0.0**, so this correction changes no admission decision on its
+own: the proposal marks weight selection ``[OPEN]``, and inventing a value here
+would both fabricate a parameter and violate fairness guarantee 5 (no test-set
+tuning). ``w_rho`` must be selected on validation data and frozen before any
+test run. Until then rho is *recorded* on every decision so its effect can be
+measured (ablation A11) rather than assumed.
 * **Supersession is only detected where the corpus states it.** The thesis's
   three-state currency has a "superseded" state discounted by delta. Nothing in
   the corpus marks one document as superseding another, so a passage is
@@ -89,9 +109,13 @@ DEFAULT_CATEGORY_AUTHORITY: Dict[str, float] = {
 DEFAULT_WEIGHTS: Dict[str, float] = {
     "support": 0.50,
     "currency": 0.30,
-    "corroboration": 0.0,          # rho is not implemented; see the module docstring
+    "rerank": 0.0,                 # rho: computed, but [OPEN] until fit on validation
+    "corroboration": 0.0,          # not implemented; see the module docstring
     "authority": 0.20,
 }
+# An existing config carrying only the old key set (support / currency /
+# corroboration / authority) still loads and still scores identically: every
+# weight it names keeps its meaning, and the new "rerank" weight defaults to 0.
 
 #: Currency half-life in years: gamma = 2 ** (-age / H) for a time-sensitive claim.
 DEFAULT_HALF_LIFE_YEARS = 5.0
@@ -334,6 +358,45 @@ class AuthorityScorer:
         return self.default, detail
 
 
+class RerankScorer:
+    """rho -- the reranker's own opinion, rank-normalised.
+
+    The proposal's notation table defines ``rho(s)`` as the **rank-normalised
+    reranker score**, and gives the reason for rank rather than min-max
+    normalisation: "so that A(s) is comparable across queries and a global
+    admission threshold is well defined". A min-max normalisation would rescale
+    per query, and the same threshold would then mean different things for
+    different questions.
+
+    ``rank`` is 1-based, as MedCPT emits it: rank 1 -> 1.0, rank n -> 0.0.
+
+    This term carries no date, tier or content signal of its own. It exists so
+    that admission can prefer what the frozen reranker already ranked highly,
+    which is the one part of the upstream pipeline SCAF is allowed to reuse.
+    """
+
+    def __init__(self, depth: int = 0) -> None:
+        #: Candidate-list depth. 0 means "infer it from the list being scored",
+        #: which is what a single-query call should do; a fixed depth makes rho
+        #: comparable across queries whose candidate lists differ in length.
+        self.depth = int(depth or 0)
+
+    def score(self, rank: Optional[int],
+              n_candidates: int) -> Tuple[float, Dict[str, Any]]:
+        depth = self.depth or int(n_candidates or 0)
+        detail: Dict[str, Any] = {"rerank_rank": rank, "depth": depth,
+                                  "normalisation": "rank"}
+        if rank is None or depth <= 1:
+            # No rank to use, or a single candidate: rho cannot discriminate.
+            # Return the neutral midpoint rather than 0, which would silently
+            # penalise every candidate.
+            detail["basis"] = "unavailable" if rank is None else "single-candidate"
+            return 0.5, detail
+        clamped = min(max(int(rank), 1), depth)
+        detail["basis"] = "rank-normalised"
+        return (depth - clamped) / (depth - 1), detail
+
+
 def _year_fraction(value: str) -> Optional[float]:
     """A YYYY / YYYY-MM / YYYY-MM-DD date as a float year. None if unparseable.
 
@@ -366,7 +429,7 @@ class SCAFDecision:
     score: float
     support: float
     currency: float
-    corroboration: float
+    rerank: float
     authority: float
     weights: Dict[str, float]
     threshold: float
@@ -376,6 +439,8 @@ class SCAFDecision:
     support_detail: Dict[str, Any] = field(default_factory=dict)
     currency_detail: Dict[str, Any] = field(default_factory=dict)
     authority_detail: Dict[str, Any] = field(default_factory=dict)
+    rerank_detail: Dict[str, Any] = field(default_factory=dict)
+    corroboration: float = 0.0
     corroboration_status: str = "not_implemented"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -385,8 +450,11 @@ class SCAFDecision:
             "scaf_score": round(self.score, 6),
             "sigma_support": round(self.support, 6),
             "gamma_currency": round(self.currency, 6),
-            "rho_corroboration": round(self.corroboration, 6),
+            "rho_rerank": round(self.rerank, 6),
             "tau_authority": round(self.authority, 6),
+            # Kept so a reader of an old record and a reader of a new one see
+            # the same key mean the same thing. rho is no longer this quantity.
+            "corroboration": round(self.corroboration, 6),
             "weights": self.weights,
             "threshold": self.threshold,
             "gate": self.gate,
@@ -396,6 +464,7 @@ class SCAFDecision:
             "support_detail": self.support_detail,
             "currency_detail": self.currency_detail,
             "authority_detail": self.authority_detail,
+            "rerank_detail": self.rerank_detail,
         }
 
 
@@ -437,6 +506,7 @@ class SCAFFilter(EvidenceFilter):
             tiers=options.get("authority_tiers"),
             category_fallback=options.get("category_authority"),
         )
+        self.rerank = RerankScorer(depth=int(options.get("rerank_depth", 0) or 0))
         self.reject_retracted = bool(options.get("reject_retracted", True))
         self.last_decisions: List[SCAFDecision] = []
 
@@ -444,16 +514,21 @@ class SCAFFilter(EvidenceFilter):
     def evaluate(self, question: Question,
                  candidates: Sequence[Evidence]) -> List[SCAFDecision]:
         idf = self.support.idf(candidates)
+        depth = len(candidates)
         out: List[SCAFDecision] = []
-        for candidate in candidates:
+        for position, candidate in enumerate(candidates, start=1):
             sigma, sigma_detail = self.support.score(question, candidate, idf)
             gamma, gamma_detail = self.currency.score(question, candidate)
             tau, tau_detail = self.authority.score(candidate)
-            rho = 0.0                                  # not implemented; w_rho = 0
+            # Fall back to list position only when the candidate carries no rank
+            # of its own: the frozen set is stored in reranked order, so the two
+            # agree, and a missing rank must not silently become rho = 0.
+            rank = candidate.rank if candidate.rank else position
+            rho, rho_detail = self.rerank.score(rank, depth)
 
             score = (self.weights["support"] * sigma
                      + self.weights["currency"] * gamma
-                     + self.weights["corroboration"] * rho
+                     + self.weights["rerank"] * rho
                      + self.weights["authority"] * tau)
 
             gate = ""
@@ -468,11 +543,11 @@ class SCAFFilter(EvidenceFilter):
             out.append(SCAFDecision(
                 chunk_id=str(candidate.passage_id or candidate.doc_id or ""),
                 admit=admit, score=score, support=sigma, currency=gamma,
-                corroboration=rho, authority=tau, weights=dict(self.weights),
+                rerank=rho, authority=tau, weights=dict(self.weights),
                 threshold=self.threshold, gate=gate, reason=reason,
                 support_method=self.support.method,
                 support_detail=sigma_detail, currency_detail=gamma_detail,
-                authority_detail=tau_detail,
+                authority_detail=tau_detail, rerank_detail=rho_detail,
             ))
         return out
 
@@ -522,6 +597,8 @@ class SCAFFilter(EvidenceFilter):
             "support_is_entailment": False,
             "support_idf_source": self.support.idf_source,
             "support_corpus_size": self.support.corpus_size,
+            "rho_method": "rank-normalised-reranker-score",
+            "rerank_depth": self.rerank.depth or "per-query",
             "corroboration_status": "not_implemented",
             "half_life_years": self.currency.half_life_years,
             "superseded_discount": self.currency.superseded_discount,

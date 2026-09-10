@@ -1,0 +1,183 @@
+{
+  "admission": {
+    "candidates": 600,
+    "contingency": {
+      "both_admitted": 4,
+      "neither": 25,
+      "rag2_only": 0,
+      "scaf_only": 571
+    },
+    "difference_clustered": {
+      "ci_high": 0.973333,
+      "ci_low": 0.928333,
+      "clusters": 30,
+      "confidence": 0.95,
+      "excludes_zero": true,
+      "method": "percentile bootstrap over whole clusters (questions)",
+      "p_value": 0.0002,
+      "point": 0.951667,
+      "resamples": 10000,
+      "seed": 20260910
+    },
+    "effect_size": {
+      "cohens_h": 2.567,
+      "magnitude": "large",
+      "note": "An effect size for how differently the two policies admit. It is not evidence that either admission rate is correct."
+    },
+    "interpretation_guard": "This measures how much evidence each policy admits at its own configured operating point. It does not measure whether the admitted evidence is better, and a larger admission rate is not a better one -- 96% admission is close to no filtering at all.",
+    "mcnemar": {
+      "discordant_pairs": 571,
+      "independence_assumption": "treats the 600 candidates as independent. They are not: 20 share each question. This p-value is therefore ANTI-CONSERVATIVE and is reported only next to the question-clustered interval.",
+      "only_first": 571,
+      "only_second": 0,
+      "p_value": 2.587631751649405e-172,
+      "test": "exact McNemar (binomial on discordant pairs)"
+    },
+    "questions": 30,
+    "rag2_admission_rate": 0.006667,
+    "rag2_rate_clustered": {
+      "ci_high": 0.013333,
+      "ci_low": 0.001667,
+      "clusters": 30,
+      "confidence": 0.95,
+      "excludes_zero": true,
+      "method": "percentile bootstrap over whole clusters (questions)",
+      "p_value": 0.025597,
+      "point": 0.006667,
+      "resamples": 10000,
+      "seed": 20260910
+    },
+    "scaf_admission_rate": 0.958333,
+    "scaf_rate_clustered": {
+      "ci_high": 0.978333,
+      "ci_low": 0.935,
+      "clusters": 30,
+      "confidence": 0.95,
+      "excludes_zero": true,
+      "method": "percentile bootstrap over whole clusters (questions)",
+      "p_value": 0.0002,
+      "point": 0.958333,
+      "resamples": 10000,
+      "seed": 20260910
+    }
+  },
+  "dual_reporting": {
+    "abstentions_rag2": 0,
+    "abstentions_scaf": 0,
+    "note": "The proposal requires every rate twice -- conditional on answering, and with abstentions counted as failures. Neither arm abstained on any of the 30 questions, so the two readings coincide here. RAG2 nonetheless answered 26 of 30 questions with zero admitted passages, which is closed-book generation, not abstention."
+  },
+  "evidence_quality": {
+    "guard": "Descriptive association only. These labels were produced independently of every machine score (annotation pass 'corrected-human-only-v1', no suggestion generated or shown), which is what makes them usable at all -- but a correlation between a lexical support score and a human topicality judgement is not evidence that the support score measures evidential support, and the sample is 120 non-randomly-selected passages clustered in 29 questions.",
+    "label_distribution": {
+      "0": 14,
+      "1": 46,
+      "2": 60
+    },
+    "questions": 29,
+    "rank_association": {
+      "gamma_currency": {
+        "ci_high": 0.172108,
+        "ci_low": -0.269026,
+        "clusters": 29,
+        "confidence": 0.95,
+        "excludes_zero": false,
+        "holm": {
+          "holm_threshold": 0.025,
+          "p_value": 0.656934,
+          "rank": 4,
+          "survives_holm": false
+        },
+        "method": "percentile bootstrap over whole clusters (questions)",
+        "p_value": 0.656934,
+        "point": -0.051875,
+        "resamples": 10000,
+        "seed": 20260910
+      },
+      "rag2_score": {
+        "ci_high": 0.166083,
+        "ci_low": -0.138844,
+        "clusters": 29,
+        "confidence": 0.95,
+        "excludes_zero": false,
+        "holm": {
+          "holm_threshold": 0.05,
+          "p_value": 0.829317,
+          "rank": 5,
+          "survives_holm": false
+        },
+        "method": "percentile bootstrap over whole clusters (questions)",
+        "p_value": 0.829317,
+        "point": 0.016956,
+        "resamples": 10000,
+        "seed": 20260910
+      },
+      "rho_rerank": {
+        "ci_high": 0.338214,
+        "ci_low": 0.084968,
+        "clusters": 29,
+        "confidence": 0.95,
+        "excludes_zero": true,
+        "holm": {
+          "holm_threshold": 0.01,
+          "p_value": 0.0016,
+          "rank": 1,
+          "survives_holm": true
+        },
+        "method": "percentile bootstrap over whole clusters (questions)",
+        "p_value": 0.0016,
+        "point": 0.217529,
+        "resamples": 10000,
+        "seed": 20260910
+      },
+      "scaf_score": {
+        "ci_high": 0.275895,
+        "ci_low": -0.041807,
+        "clusters": 29,
+        "confidence": 0.95,
+        "excludes_zero": false,
+        "holm": {
+          "holm_threshold": 0.016667,
+          "p_value": 0.146585,
+          "rank": 3,
+          "survives_holm": false
+        },
+        "method": "percentile bootstrap over whole clusters (questions)",
+        "p_value": 0.146585,
+        "point": 0.123659,
+        "resamples": 10000,
+        "seed": 20260910
+      },
+      "sigma_support": {
+        "ci_high": 0.323845,
+        "ci_low": -0.023854,
+        "clusters": 29,
+        "confidence": 0.95,
+        "excludes_zero": false,
+        "holm": {
+          "holm_threshold": 0.0125,
+          "p_value": 0.087391,
+          "rank": 2,
+          "survives_holm": false
+        },
+        "method": "percentile bootstrap over whole clusters (questions)",
+        "p_value": 0.087391,
+        "point": 0.163981,
+        "resamples": 10000,
+        "seed": 20260910
+      }
+    },
+    "rows": 120,
+    "unresolved": []
+  },
+  "not_tested_here": {
+    "H1/H2/H3 (admission asymmetry)": "needs FRB-PAIRS; not constructed",
+    "H4 (permutation control)": "needs FRB-PAIRS; not constructed",
+    "H5 (unsupported-claim rate)": "needs claim-level answer labels; none exist",
+    "H6 (mediation by retrieval recall)": "needs relevance labels per arm",
+    "H7 (non-inferiority on time-invariant QA)": "needs gold answers; none exist"
+  },
+  "resamples": 10000,
+  "resampling_unit": "question",
+  "seed": 20260910,
+  "why_clustered": "20 candidates share each question, so the effective sample size is much closer to 30 than to 600. Every interval here resamples whole questions."
+}

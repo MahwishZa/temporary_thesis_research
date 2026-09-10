@@ -516,7 +516,12 @@ fail — which is the correct report, not a defect.
 ## 9. Known limitation, unchanged by any of this
 
 The corpus is a five-year window (2021-08-30 → 2026-08-30) by the approved
-PubMed strategy: **7 of 43,409 production documents predate 2020**. The recency
-comparison the thesis is about therefore has almost no older stratum, and
-FRB-PAIRS cannot be constructed from this corpus. That is a supervisor decision,
-not a software problem — see `docs/experiments/preliminary_rag2_vs_scaf.md` §0.
+PubMed strategy: **7 of 43,409 production documents predate 2020**. Within this
+corpus the currency term γ spans only [0.536, 1.000], so an age comparison run
+against it would measure almost nothing.
+
+**FRB-PAIRS is not affected.** Proposal §5.2 sources it from MedChangeQA behind
+a provenance firewall; the corpus was never the intended source, and an earlier
+version of this section wrongly reported the two as the same blocker. The probe
+is implemented — see `experiments/recency_bias/README.md` for the exact command
+and `docs/experiments/preliminary_rag2_vs_scaf.md` §0 for the correction.
