@@ -12,6 +12,8 @@ import json
 import os
 import sys
 
+from collections import Counter
+
 import pytest
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
@@ -190,7 +192,7 @@ def test_catches_a_changed_label_distribution(study):
     rows = copy.deepcopy(study["blind"])
     rows[0]["human_label"] = 1 if rows[0]["human_label"] != 1 else 2
     assert status(_annotations(study, rows),
-                  "label distribution matches the reported 24/8/8") == "FAIL"
+                  "label distribution matches the recorded outcome for this pass 24/8/8") == "FAIL"
 
 
 def test_catches_duplicate_annotation_ids(study):
@@ -599,3 +601,140 @@ def test_a_sheet_with_no_suggestion_metadata_at_all_is_not_claimed_clean(study):
         row.pop("ai_suggestion_generated")
         row.pop("ai_suggestion_shown")
     assert status(audit_anchoring(rows), "free of suggestion anchoring") == "SKIP"
+
+
+# --------------------------------------------------------------------------
+# REGRESSION: a label distribution belongs to ONE annotation pass
+#
+# The audit hard-coded the pilot's 75/41/4 as a global expectation, so the
+# corrected human-only pass ({0: 14, 1: 46, 2: 60}) failed for the sole reason
+# that it disagreed with the pass it was created to replace. Two independent
+# readings of identical passages legitimately differ; requiring agreement would
+# be requiring the second pass not to be independent.
+# --------------------------------------------------------------------------
+from experiments.analysis.eq_audit import (  # noqa: E402
+    CORRECTED_PASS_LABEL,
+    PILOT_DISTRIBUTION,
+)
+
+
+def _write_corrected(study, labels):
+    """A finished corrected pass on disk, with a chosen label distribution."""
+    rows = blank_sheet_from(study["blind"])
+    for row, label in zip(rows, labels):
+        row["human_label"] = label
+        row["annotated_utc"] = "2026-09-10T12:00:00Z"
+        row["ai_suggestion_shown"] = False
+        row["ai_suggestion_generated"] = False
+    path = os.path.join(study["dir"], "annotation_sheet_v2.jsonl")
+    with open(path, "w", encoding="utf-8") as fh:
+        for row in rows:
+            fh.write(json.dumps(row, sort_keys=True) + "\n")
+    return path, rows
+
+
+def test_corrected_pass_is_not_required_to_match_the_pilot_distribution(study):
+    """The exact reported failure. The pilot is 24/8/8 in this fixture; the
+    corrected pass is deliberately different and must still pass."""
+    pilot_labels = [r["human_label"] for r in study["blind"]]
+    corrected_labels = [2, 1, 1, 0, 1, 2, 1, 2] * 5          # 40 rows, different
+    assert Counter(corrected_labels) != Counter(pilot_labels)
+
+    path, _ = _write_corrected(study, corrected_labels)
+    report = run_audit(path, study["per_question"], study["manifest"],
+                       study["comparison_manifest"], key_path=study["key"],
+                       expected=study["expected"],      # the PILOT's distribution
+                       expected_rows=40, expected_population=200,
+                       expected_questions=10,
+                       original_sheet_path=study["sheet"])
+
+    failures = [f for f in report["findings"] if f["status"] == "FAIL"]
+    assert failures == [], failures
+    assert report["integrity"]["label_distribution"] == dict(
+        sorted(Counter(corrected_labels).items()))
+
+
+def test_the_audit_says_out_loud_that_the_distribution_is_independent(study):
+    """Section 3: the output must state this, not merely stop failing."""
+    path, _ = _write_corrected(study, [2, 1, 1, 0, 1, 2, 1, 2] * 5)
+    report = run_audit(path, study["per_question"], study["manifest"],
+                       study["comparison_manifest"], key_path=study["key"],
+                       expected=study["expected"], expected_rows=40,
+                       expected_population=200, expected_questions=10,
+                       original_sheet_path=study["sheet"])
+    text = " ".join(f["check"] + " " + f["detail"] for f in report["findings"])
+    assert "independent" in text
+    assert "not required to match" in text or "not expected" in text
+    assert CORRECTED_PASS_LABEL in text
+
+
+def test_the_pilot_is_still_checked_against_its_own_recorded_outcome(study):
+    findings = audit_annotations(study["blind"], study["decisions"],
+                                 expected=study["expected"], expected_rows=40)
+    assert status(findings, "label distribution matches the recorded outcome "
+                            "for this pass 24/8/8") == "PASS"
+
+
+def test_the_pilot_still_fails_its_anchoring_checks(study):
+    """Fixing the distribution bug must not make the invalid pilot pass."""
+    rows = copy.deepcopy(study["blind"])
+    for row in rows:
+        row["human_label"] = row["ai_suggested_label"]
+        row["ai_suggestion_shown"] = True
+    _rewrite_sheet(study, rows)
+    report = _run(study)
+    failed = [f["check"] for f in report["findings"] if f["status"] == "FAIL"]
+    assert "human_label is not a copy of ai_suggested_label" in failed
+    assert "labels are distinguishable from the suggestion" in failed
+    assert report["verdict"] == "FAIL"
+
+
+def test_an_unmarked_pass_with_no_recorded_outcome_is_reported_not_checked(study):
+    """Neither corrected nor on record: report the distribution, claim nothing."""
+    findings = audit_annotations(study["blind"], study["decisions"],
+                                 expected=None, expected_rows=40, independent=False)
+    finding = next(f for f in findings if "label distribution" in f.check)
+    assert finding.status == "PASS"
+    assert "no outcome on record" in finding.check
+    assert "independent human pass" not in finding.detail
+
+
+def test_pilot_distribution_constant_is_the_pilots_alone():
+    assert PILOT_DISTRIBUTION == {2: 75, 1: 41, 0: 4}
+
+
+# --------------------------------------------------------------------------
+# REGRESSION: manifests are written on Windows and audited anywhere
+# --------------------------------------------------------------------------
+def test_provenance_parses_a_windows_manifest_path_on_any_platform(study):
+    """os.path on POSIX does not split backslashes, so a correct Windows-written
+    manifest read the source directory as empty and failed a true check."""
+    findings = audit_provenance(
+        {"frozen_set_digest": DIGEST, "retrieval_is_medcpt": True,
+         "source_per_question": "C:\\Users\\x\\thesis_research\\experiments\\"
+                                "results\\rag2_vs_scaf_alzheimer\\"
+                                "comparison_scientific\\per_question.jsonl"},
+        {"frozen_set_digest": DIGEST}, None)
+    assert status(findings, "sample was built from comparison_scientific/") == "PASS"
+
+
+def test_provenance_still_catches_a_windows_path_from_the_wrong_directory(study):
+    findings = audit_provenance(
+        {"frozen_set_digest": DIGEST, "retrieval_is_medcpt": True,
+         "source_per_question": "C:\\Users\\x\\experiments\\results\\alz\\"
+                                "comparison\\per_question.jsonl"},
+        {"frozen_set_digest": DIGEST}, None)
+    assert status(findings, "sample was built from comparison_scientific/") == "FAIL"
+
+
+def test_provenance_handles_posix_and_bare_paths(study):
+    for path, expected in (
+            ("/home/x/results/alz/comparison_scientific/per_question.jsonl", "PASS"),
+            ("comparison_scientific/per_question.jsonl", "PASS"),
+            ("per_question.jsonl", "FAIL"),
+            ("", "FAIL")):
+        findings = audit_provenance(
+            {"frozen_set_digest": DIGEST, "retrieval_is_medcpt": True,
+             "source_per_question": path}, {"frozen_set_digest": DIGEST}, None)
+        assert status(findings,
+                      "sample was built from comparison_scientific/") == expected, path
