@@ -172,7 +172,8 @@ def to_frozen(question: Dict[str, Any], ranked: List[Dict[str, Any]]) -> FrozenC
                               question_metadata=meta)
 
 
-def from_rag2_cache(cache_path: Path, questions: List[Dict[str, Any]]) -> List[FrozenCandidateSet]:
+def from_rag2_cache(cache_path: Path, questions: List[Dict[str, Any]],
+                    depth: int = 20) -> List[FrozenCandidateSet]:
     """Freeze the baseline's own MedCPT candidate cache. The real path."""
     from rag2.cache import iter_candidates
     from rag2.schema import Question
@@ -185,7 +186,7 @@ def from_rag2_cache(cache_path: Path, questions: List[Dict[str, Any]]) -> List[F
                                      if k not in ("qid", "question")})
         for q in questions
     }
-    return from_rag2_candidate_sets(list(iter_candidates(str(cache_path))), lookup)
+    return from_rag2_candidate_sets(list(iter_candidates(str(cache_path))), lookup, depth=depth)
 
 
 def main(argv=None) -> int:
@@ -208,7 +209,7 @@ def main(argv=None) -> int:
     if args.source == "medcpt":
         if not args.cache:
             raise SystemExit("--source medcpt requires --cache <rag2 candidate cache>")
-        frozen_sets = from_rag2_cache(args.cache, questions)
+        frozen_sets = from_rag2_cache(args.cache, questions, depth=args.depth)
         provenance = {
             "retrieval_is_medcpt": True,
             "source": "rag2 candidate cache",

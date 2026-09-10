@@ -581,3 +581,106 @@ class TestPairedComparison:
         assert out["rag2_total_admitted"] == summarise(arm_a)["total_admitted"]
         assert out["scaf_total_admitted"] == summarise(arm_b)["total_admitted"]
         assert out["rag2_admission_rate"] == 1.0    # passthrough keeps everything
+
+
+class TestMedCPTFreezeDepth:
+    """Depth truncation on the MedCPT path.
+
+    ``from_rag2_candidate_sets`` used to freeze the whole cache regardless of the
+    requested depth, so a cache built at a different ``retrieval.final_top_k``
+    produced a frozen set of that size while the sidecar recorded the requested
+    depth. The two could disagree and the manifest's ``candidate_depth`` was then
+    wrong. Truncation is of an already-ranked cache -- never a re-rank.
+    """
+
+    @staticmethod
+    def _cache(n=25):
+        from rag2.schema import CandidateSet, Evidence
+        return [CandidateSet(
+            qid="alz-001",
+            rationale="a generated rationale",
+            candidates=[
+                Evidence(
+                    text=f"evidence body {i}",
+                    source="pmc-fulltext",
+                    doc_id=f"PMC{i:07d}",
+                    passage_id=f"c{i:02d}",
+                    # ev.rank is deliberately NOT 1..n so the test can tell an
+                    # preserved upstream rank from a re-numbered one.
+                    rank=100 + i,
+                    rerank_score=9.5 - i,
+                    metadata={
+                        "retrieval_score": 0.9 - i / 100,
+                        "pmid": f"pmid{i}",
+                        "canonical_date": "2024-01-01",
+                        "carried_through": f"keep-{i}",
+                    },
+                )
+                for i in range(n)
+            ],
+        )]
+
+    @staticmethod
+    def _questions():
+        from rag2.schema import Question
+        return {"alz-001": Question(qid="alz-001", question="Which plasma biomarker?",
+                                    options={}, metadata={"time_sensitive": True})}
+
+    def test_depth_20_keeps_exactly_20_candidates(self):
+        from scaf.frozen import from_rag2_candidate_sets
+        out = from_rag2_candidate_sets(self._cache(25), self._questions(), depth=20)
+        assert len(out) == 1
+        assert len(out[0].candidates) == 20
+
+    def test_depth_20_keeps_the_first_20_in_upstream_order(self):
+        """The MedCPT ranking is the cache's own order; [:depth] is its top-N."""
+        from scaf.frozen import from_rag2_candidate_sets
+        out = from_rag2_candidate_sets(self._cache(25), self._questions(), depth=20)
+        assert [c.chunk_id for c in out[0].candidates] == [f"c{i:02d}" for i in range(20)]
+        assert [c.text for c in out[0].candidates] == [f"evidence body {i}" for i in range(20)]
+        # and nothing from beyond the cut survived
+        assert "c20" not in {c.chunk_id for c in out[0].candidates}
+
+    def test_default_depth_is_20(self):
+        from scaf.frozen import from_rag2_candidate_sets
+        out = from_rag2_candidate_sets(self._cache(25), self._questions())
+        assert len(out[0].candidates) == 20
+
+    def test_truncation_preserves_scores_ranks_and_metadata(self):
+        from scaf.frozen import from_rag2_candidate_sets
+        kept = from_rag2_candidate_sets(self._cache(25), self._questions(), depth=20)[0].candidates
+        for i, candidate in enumerate(kept):
+            # upstream rerank rank survives; it is NOT renumbered to 1..20
+            assert candidate.rerank_rank == 100 + i
+            assert candidate.rerank_score == pytest.approx(9.5 - i)
+            assert candidate.retrieval_score == pytest.approx(0.9 - i / 100)
+            # retrieval_rank is the position within the frozen set, as before
+            assert candidate.retrieval_rank == i + 1
+            assert candidate.pmid == f"pmid{i}"
+            assert candidate.canonical_date == "2024-01-01"
+            # leftover metadata keys are carried through untouched
+            assert candidate.metadata["carried_through"] == f"keep-{i}"
+
+    def test_a_shorter_cache_is_left_alone(self):
+        """Depth is a cap, not a target: it must never pad or re-retrieve."""
+        from scaf.frozen import from_rag2_candidate_sets
+        out = from_rag2_candidate_sets(self._cache(8), self._questions(), depth=20)
+        assert len(out[0].candidates) == 8
+        assert [c.chunk_id for c in out[0].candidates] == [f"c{i:02d}" for i in range(8)]
+
+    def test_question_fields_are_unaffected_by_truncation(self):
+        from scaf.frozen import from_rag2_candidate_sets
+        out = from_rag2_candidate_sets(self._cache(25), self._questions(), depth=20)[0]
+        assert out.qid == "alz-001"
+        assert out.question == "Which plasma biomarker?"
+        assert out.query == "a generated rationale"
+        assert out.question_metadata == {"time_sensitive": True}
+
+    def test_freeze_script_passes_its_depth_through(self):
+        """The CLI's --depth must reach the bridge on the medcpt path."""
+        import pathlib
+        source = pathlib.Path(_ROOT, "experiments", "scripts",
+                              "freeze_candidates.py").read_text(encoding="utf-8")
+        assert "from_rag2_cache(args.cache, questions, depth=args.depth)" in source
+        assert ("from_rag2_candidate_sets(list(iter_candidates(str(cache_path))), "
+                "lookup, depth=depth)") in source
