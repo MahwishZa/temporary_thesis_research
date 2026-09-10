@@ -65,6 +65,7 @@ def available_corpora() -> List[str]:
 
 def build_corpus(config: CorpusConfig) -> Corpus:
     from . import json_corpus as _json_corpus  # noqa: F401  (registration)
+    from . import thesis_chunks as _thesis_chunks  # noqa: F401  (registration)
 
     if config.loader not in _REGISTRY:
         raise KeyError(f"unknown corpus loader {config.loader!r}; available: {available_corpora()}")
@@ -149,3 +150,4 @@ def decode_passage(
         corpus_index=index,
         metadata=metadata,
     )
+
