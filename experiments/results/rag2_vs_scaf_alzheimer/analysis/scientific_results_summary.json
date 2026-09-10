@@ -1,0 +1,719 @@
+{
+  "admission_behaviour": {
+    "candidate_level": {
+      "both_admit": 4,
+      "decisions": 600,
+      "jaccard": 0.006957,
+      "neither_admits": 25,
+      "rag2_admission_rate": 0.006667,
+      "rag2_admitted": 4,
+      "rag2_only": 0,
+      "scaf_admission_rate": 0.958333,
+      "scaf_admitted": 575,
+      "scaf_only": 571
+    },
+    "guard": "admission counts measure how much evidence each policy lets through. They say nothing about whether that evidence is better; that is what the human labels are for.",
+    "question_level": {
+      "questions": 30,
+      "questions_with_any_rag2_evidence": 4,
+      "questions_with_any_scaf_evidence": 30,
+      "questions_with_zero_rag2_evidence": 26,
+      "rag2_admissions_per_question": {
+        "max": 1,
+        "mean": 0.1333,
+        "min": 0
+      },
+      "scaf_admissions_per_question": {
+        "max": 20,
+        "mean": 19.1667,
+        "min": 16
+      }
+    }
+  },
+  "clustering": {
+    "guard": "rows within a question are not independent; the reported n is a count of passages, not of independent observations, and no clustering correction is applied",
+    "questions_represented": 29,
+    "rows": 120,
+    "rows_per_question": {
+      "max": 8,
+      "mean": 4.1379,
+      "min": 2
+    }
+  },
+  "examples": {
+    "lowest_scaf_score_that_humans_called_clearly_relevant": [
+      {
+        "annotation_id": "eq-0069",
+        "canonical_date": "2022-06-01",
+        "gamma": 0.6085,
+        "human_label": 2,
+        "passage_excerpt": "PURPOSE OF REVIEW: This article discusses how fluid biomarkers can augment the routine dementia evaluation and improve diagnostic accuracy. The tests that are currently available and the indications for their use are described. Further, tes",
+        "qid": "alz-022",
+        "question": "What blood tests should be ordered in the initial dementia workup?",
+        "rag2_admitted": false,
+        "rag2_score": 0.2763,
+        "scaf_admitted": false,
+        "scaf_score": 0.399,
+        "sigma": 0.2728,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      },
+      {
+        "annotation_id": "eq-0007",
+        "canonical_date": "2022",
+        "gamma": 0.6156,
+        "human_label": 2,
+        "passage_excerpt": "Testing an individual's blood and other fluids and checking levels of different chemicals, hormones, and vitamins can help diagnose or rule out potential causes of symptoms. Mini strokes, cancers, and other conditions that may partly underp",
+        "qid": "alz-022",
+        "question": "What blood tests should be ordered in the initial dementia workup?",
+        "rag2_admitted": false,
+        "rag2_score": 0.44,
+        "scaf_admitted": true,
+        "scaf_score": 0.4848,
+        "sigma": 0.4203,
+        "source_category": "pmc-fulltext",
+        "tau": 0.45
+      },
+      {
+        "annotation_id": "eq-0078",
+        "canonical_date": "2021-12-17",
+        "gamma": 0.5713,
+        "human_label": 2,
+        "passage_excerpt": "BACKGROUND: Typical and atypical antipsychotics are widely used to treat agitation and psychosis in dementia. However, whether or not they are beneficial is uncertain. Some trials have yielded negative results and effectiveness may be outwe",
+        "qid": "alz-017",
+        "question": "How should agitation in Alzheimer dementia be managed?",
+        "rag2_admitted": false,
+        "rag2_score": 0.2866,
+        "scaf_admitted": true,
+        "scaf_score": 0.4897,
+        "sigma": 0.4767,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      }
+    ],
+    "rag2_admitted": [
+      {
+        "annotation_id": "eq-0067",
+        "canonical_date": "2025-05",
+        "gamma": 0.9167,
+        "human_label": 2,
+        "passage_excerpt": "with the evolution of caregiver burden. CONCLUSIONS: Caregivers of patients who received a diagnosis of MCI due to AD report substantial burden, that increased with time. Future studies should investigate caregiver characteristics that may ",
+        "qid": "alz-027",
+        "question": "How is caregiver burden assessed in Alzheimer disease?",
+        "rag2_admitted": true,
+        "rag2_score": 0.5481,
+        "scaf_admitted": true,
+        "scaf_score": 0.5745,
+        "sigma": 0.439,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      },
+      {
+        "annotation_id": "eq-0044",
+        "canonical_date": "2026-05-05",
+        "gamma": 1.0,
+        "human_label": 2,
+        "passage_excerpt": "superior memantine effects in moderate-to-severe disease. CONCLUSION: Non-pharmacological interventions demonstrated short-term cognitive benefits primarily in mild Alzheimer's disease populations and should be interpreted as adjunctive sym",
+        "qid": "alz-012",
+        "question": "What is the evidence for memantine in moderate to severe Alzheimer disease?",
+        "rag2_admitted": true,
+        "rag2_score": 0.5457,
+        "scaf_admitted": true,
+        "scaf_score": 0.5555,
+        "sigma": 0.3509,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      },
+      {
+        "annotation_id": "eq-0008",
+        "canonical_date": "2025-12-23",
+        "gamma": 0.9969,
+        "human_label": 2,
+        "passage_excerpt": "Imaging biomarkers provide structural and molecular and metabolic insights into DLB, crucial for its differential diagnosis, especially at early stages.",
+        "qid": "alz-028",
+        "question": "What is the differential diagnosis for rapidly progressive dementia?",
+        "rag2_admitted": true,
+        "rag2_score": 0.5243,
+        "scaf_admitted": true,
+        "scaf_score": 0.5853,
+        "sigma": 0.3925,
+        "source_category": "pmc-fulltext",
+        "tau": 0.45
+      },
+      {
+        "annotation_id": "eq-0064",
+        "canonical_date": "2026-04-16",
+        "gamma": 1.0,
+        "human_label": 1,
+        "passage_excerpt": "to increase with higher antibody doses and more rapid titration schedules. These side effects can limit dosage and treatment duration [[REF]]. Furthermore, as mentioned, the drugs require repeated intravenous administration and close monito",
+        "qid": "alz-010",
+        "question": "What is the recommended monitoring schedule for patients receiving anti-amyloid antibodies?",
+        "rag2_admitted": true,
+        "rag2_score": 0.5037,
+        "scaf_admitted": true,
+        "scaf_score": 0.4951,
+        "sigma": 0.1502,
+        "source_category": "currency-pack",
+        "tau": 0.6
+      }
+    ],
+    "scaf_admitted_but_human_says_irrelevant": [
+      {
+        "annotation_id": "eq-0072",
+        "canonical_date": "2025-11",
+        "gamma": 0.9824,
+        "human_label": 0,
+        "passage_excerpt": "Dementia is a major cause of disability and dependence in older adults, highlighting the urgent need to identify those at high risk early. Numerous dementia risk scores have been developed as statistical models, with a few being adapted int",
+        "qid": "alz-015",
+        "question": "Which modifiable risk factors are associated with dementia prevention?",
+        "rag2_admitted": false,
+        "rag2_score": 0.452,
+        "scaf_admitted": true,
+        "scaf_score": 0.8132,
+        "sigma": 0.857,
+        "source_category": "pmc-fulltext",
+        "tau": 0.45
+      },
+      {
+        "annotation_id": "eq-0118",
+        "canonical_date": "2024-05-27",
+        "gamma": 0.8017,
+        "human_label": 0,
+        "passage_excerpt": "Alzheimer's disease (AD), a primary cause of dementia globally, is traditionally diagnosed via cerebrospinal fluid (CSF) measures and positron emission tomography (PET). The invasiveness, cost, and limited accessibility of these methods hav",
+        "qid": "alz-005",
+        "question": "How is cerebrospinal fluid p-tau181 used in Alzheimer diagnosis?",
+        "rag2_admitted": false,
+        "rag2_score": 0.2746,
+        "scaf_admitted": true,
+        "scaf_score": 0.6761,
+        "sigma": 0.7112,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      },
+      {
+        "annotation_id": "eq-0085",
+        "canonical_date": "2022-07",
+        "gamma": 0.6189,
+        "human_label": 0,
+        "passage_excerpt": "Alzheimer's disease (AD) is a progressive neurodegenerative disease and the single commonest cause of dementia. Many other diseases can, however, cause dementia, and differential diagnosis can be challenging, especially in early disease sta",
+        "qid": "alz-028",
+        "question": "What is the differential diagnosis for rapidly progressive dementia?",
+        "rag2_admitted": false,
+        "rag2_score": 0.3576,
+        "scaf_admitted": true,
+        "scaf_score": 0.6459,
+        "sigma": 0.7604,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      }
+    ],
+    "scaf_rejected": [
+      {
+        "annotation_id": "eq-0069",
+        "canonical_date": "2022-06-01",
+        "gamma": 0.6085,
+        "human_label": 2,
+        "passage_excerpt": "PURPOSE OF REVIEW: This article discusses how fluid biomarkers can augment the routine dementia evaluation and improve diagnostic accuracy. The tests that are currently available and the indications for their use are described. Further, tes",
+        "qid": "alz-022",
+        "question": "What blood tests should be ordered in the initial dementia workup?",
+        "rag2_admitted": false,
+        "rag2_score": 0.2763,
+        "scaf_admitted": false,
+        "scaf_score": 0.399,
+        "sigma": 0.2728,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      },
+      {
+        "annotation_id": "eq-0003",
+        "canonical_date": "2023-11",
+        "gamma": 0.7446,
+        "human_label": 1,
+        "passage_excerpt": "Early and accurate diagnosis are crucial to appropriate care, ensuring timely intervention, and planning for future needs of patients with dementia. Dementia is a clinical diagnosis and should include comprehensive evaluation of patient cog",
+        "qid": "alz-022",
+        "question": "What blood tests should be ordered in the initial dementia workup?",
+        "rag2_admitted": false,
+        "rag2_score": 0.2985,
+        "scaf_admitted": false,
+        "scaf_score": 0.4398,
+        "sigma": 0.2728,
+        "source_category": "pubmed-abstract",
+        "tau": 0.4
+      }
+    ],
+    "selection_rule": "deterministic: highest SCAF score first for the admitted-but-irrelevant case, highest human label for SCAF rejections, highest RAG2 score for RAG2 admissions, lowest SCAF score for underrated evidence. No example was chosen by hand."
+  },
+  "human_evidence_quality": {
+    "by_group": {
+      "all_annotated": {
+        "distribution": {
+          "0": 14,
+          "1": 46,
+          "2": 60
+        },
+        "mean": 1.3833,
+        "median": 1.5,
+        "n": 120
+      },
+      "both_admit": {
+        "distribution": {
+          "1": 1,
+          "2": 3
+        },
+        "mean": 1.75,
+        "median": 2.0,
+        "n": 4
+      },
+      "neither_admits": {
+        "distribution": {
+          "1": 1,
+          "2": 1
+        },
+        "mean": 1.5,
+        "median": 1.5,
+        "n": 2
+      },
+      "rag2_admitted": {
+        "distribution": {
+          "1": 1,
+          "2": 3
+        },
+        "mean": 1.75,
+        "median": 2.0,
+        "n": 4
+      },
+      "rag2_only": {
+        "n": 0
+      },
+      "rag2_rejected": {
+        "distribution": {
+          "0": 14,
+          "1": 45,
+          "2": 57
+        },
+        "mean": 1.3707,
+        "median": 1.0,
+        "n": 116
+      },
+      "scaf_admitted": {
+        "distribution": {
+          "0": 14,
+          "1": 45,
+          "2": 59
+        },
+        "mean": 1.3814,
+        "median": 1.5,
+        "n": 118
+      },
+      "scaf_only": {
+        "distribution": {
+          "0": 14,
+          "1": 44,
+          "2": 56
+        },
+        "mean": 1.3684,
+        "median": 1.0,
+        "n": 114
+      },
+      "scaf_rejected": {
+        "distribution": {
+          "1": 1,
+          "2": 1
+        },
+        "mean": 1.5,
+        "median": 1.5,
+        "n": 2
+      }
+    },
+    "by_scaf_score_band": {
+      "0.50_to_0.80": {
+        "distribution": {
+          "0": 11,
+          "1": 35,
+          "2": 56
+        },
+        "mean": 1.4412,
+        "median": 2.0,
+        "n": 102
+      },
+      "0.80_and_above": {
+        "distribution": {
+          "0": 1,
+          "1": 4,
+          "2": 1
+        },
+        "mean": 1,
+        "median": 1.0,
+        "n": 6
+      },
+      "below_0.50": {
+        "distribution": {
+          "0": 2,
+          "1": 7,
+          "2": 3
+        },
+        "mean": 1.0833,
+        "median": 1.0,
+        "n": 12
+      }
+    },
+    "guard": "These are descriptive associations on a stratified, non-random sample of 120 of 600 decisions, clustered within questions, with all four RAG2 admissions forced in. They are not estimates of a population parameter and no significance test is appropriate. The sigma association in particular is between one lexical measure and a human judgement, not an independent validation of lexical support.",
+    "irrelevant_passages": {
+      "n": 14,
+      "rag2_admitted": 0,
+      "scaf_admitted": 14
+    },
+    "overall": {
+      "distribution": {
+        "0": 14,
+        "1": 46,
+        "2": 60
+      },
+      "mean": 1.3833,
+      "median": 1.5,
+      "n": 120
+    },
+    "rank_association": {
+      "rag2_score": {
+        "n": 120,
+        "spearman": 0.017
+      },
+      "scaf_gamma_currency": {
+        "n": 120,
+        "spearman": -0.0519
+      },
+      "scaf_score": {
+        "n": 120,
+        "spearman": 0.1237
+      },
+      "scaf_sigma_support": {
+        "n": 120,
+        "spearman": 0.164
+      },
+      "scaf_tau_authority": {
+        "n": 120,
+        "spearman": -0.0164
+      }
+    }
+  },
+  "join": {
+    "annotations": 120,
+    "joined": 120,
+    "unmatched": []
+  },
+  "matched_context": {
+    "guard": "this re-ranks the SAME frozen candidates by each arm's own score; it runs no new retrieval and no new generation. Only annotated rows carry a human label, so the per-k samples are small, unequal between arms, and not a controlled experiment.",
+    "human_quality_of_each_arms_top_k": {
+      "k=1": {
+        "rag2": {
+          "distribution": {
+            "1": 3,
+            "2": 5
+          },
+          "mean": 1.625,
+          "median": 2.0,
+          "n": 8
+        },
+        "scaf": {
+          "distribution": {
+            "1": 3,
+            "2": 5
+          },
+          "mean": 1.625,
+          "median": 2.0,
+          "n": 8
+        }
+      },
+      "k=3": {
+        "rag2": {
+          "distribution": {
+            "0": 1,
+            "1": 11,
+            "2": 14
+          },
+          "mean": 1.5,
+          "median": 2.0,
+          "n": 26
+        },
+        "scaf": {
+          "distribution": {
+            "1": 9,
+            "2": 7
+          },
+          "mean": 1.4375,
+          "median": 1.0,
+          "n": 16
+        }
+      },
+      "k=5": {
+        "rag2": {
+          "distribution": {
+            "0": 3,
+            "1": 14,
+            "2": 19
+          },
+          "mean": 1.4444,
+          "median": 2.0,
+          "n": 36
+        },
+        "scaf": {
+          "distribution": {
+            "0": 2,
+            "1": 11,
+            "2": 12
+          },
+          "mean": 1.4,
+          "median": 1,
+          "n": 25
+        }
+      },
+      "k=8": {
+        "rag2": {
+          "distribution": {
+            "0": 3,
+            "1": 25,
+            "2": 27
+          },
+          "mean": 1.4364,
+          "median": 1,
+          "n": 55
+        },
+        "scaf": {
+          "distribution": {
+            "0": 2,
+            "1": 16,
+            "2": 23
+          },
+          "mean": 1.5122,
+          "median": 2,
+          "n": 41
+        }
+      }
+    },
+    "overlap": {
+      "1": {
+        "mean_jaccard": 0.0,
+        "passages_per_arm_per_question": 1,
+        "possible_total": 30,
+        "questions": 30,
+        "shared_passages_total": 0
+      },
+      "3": {
+        "mean_jaccard": 0.0533,
+        "passages_per_arm_per_question": 3,
+        "possible_total": 90,
+        "questions": 30,
+        "shared_passages_total": 8
+      },
+      "5": {
+        "mean_jaccard": 0.1056,
+        "passages_per_arm_per_question": 5,
+        "possible_total": 150,
+        "questions": 30,
+        "shared_passages_total": 27
+      },
+      "8": {
+        "mean_jaccard": 0.2156,
+        "passages_per_arm_per_question": 8,
+        "possible_total": 240,
+        "questions": 30,
+        "shared_passages_total": 82
+      }
+    }
+  },
+  "provenance": {
+    "analysis_version": "scientific-results-v1",
+    "annotation_pass": [
+      "corrected-human-only-v1"
+    ],
+    "annotation_sheet_sha256": "19d427cd6a0909056e3e24a1a2aa9a8976f82426cc669eb815b101f474e14ed1",
+    "counts": {
+      "candidates_per_question": [
+        20
+      ],
+      "decisions": 600,
+      "human_annotations": 120,
+      "questions": 30
+    },
+    "digests_agree": true,
+    "generated_utc": "2026-09-10T17:47:42Z",
+    "label_fingerprint": "49e2b927212e4a4c39c5756f8a46f4c56b6b3d45a64586ed4b803b32a9688354",
+    "sample": {
+      "forced_rag2_admitted": 4,
+      "frozen_set_digest": "316260f04c1720fbc20c1b584ea9f0a093dedbae9fd46476d8a7f45380e86aad",
+      "population": 600,
+      "rag2_tertile_edges": [
+        0.292668,
+        0.344102
+      ],
+      "retrieval_is_medcpt": true,
+      "sampled": 120,
+      "scaf_tertile_edges": [
+        0.58149,
+        0.685577
+      ],
+      "seed": 42
+    },
+    "scientific_run": {
+      "created_at": "2026-09-10T01:44:45+00:00",
+      "fairness_all_passed": true,
+      "frozen_set_digest": "316260f04c1720fbc20c1b584ea9f0a093dedbae9fd46476d8a7f45380e86aad",
+      "reportable": true,
+      "scientific_all_passed": true
+    },
+    "sources": {
+      "annotation_sheet": "/home/user/thesis_research/experiments/results/rag2_vs_scaf_alzheimer/evidence_quality/annotation_sheet_v2.jsonl",
+      "decisions": "/home/user/thesis_research/experiments/results/rag2_vs_scaf_alzheimer/comparison_scientific/per_question.jsonl",
+      "run_manifest": "/home/user/thesis_research/experiments/results/rag2_vs_scaf_alzheimer/comparison_scientific/manifest.json",
+      "sample_manifest": "/home/user/thesis_research/experiments/results/rag2_vs_scaf_alzheimer/evidence_quality/sample_manifest.json"
+    }
+  },
+  "retraction_census": {
+    "currency_state": {
+      "current": 480,
+      "not_time_sensitive": 120
+    },
+    "date_precision": {
+      "day": 234,
+      "month": 238,
+      "year": 128
+    },
+    "retracted": {
+      "no": 600
+    },
+    "supersession": {
+      "n/a": 120,
+      "unknown": 480
+    }
+  },
+  "scaf_components": {
+    "ablation_variants": {
+      "full_scaf": {
+        "admitted": 575,
+        "max_possible_score": 1.0,
+        "of": 600,
+        "rate": 0.958333,
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.3,
+          "support": 0.5
+        }
+      },
+      "support_authority": {
+        "admitted": 147,
+        "max_possible_score": 0.7,
+        "of": 600,
+        "rate": 0.245,
+        "weights": {
+          "authority": 0.2,
+          "currency": 0.0,
+          "support": 0.5
+        }
+      },
+      "support_currency": {
+        "admitted": 478,
+        "max_possible_score": 0.8,
+        "of": 600,
+        "rate": 0.796667,
+        "weights": {
+          "authority": 0.0,
+          "currency": 0.3,
+          "support": 0.5
+        }
+      },
+      "support_only": {
+        "admitted": 426,
+        "max_possible_score": 1.0,
+        "of": 600,
+        "rate": 0.71,
+        "weights": {
+          "authority": 0.0,
+          "currency": 0.0,
+          "support": 1.0
+        }
+      }
+    },
+    "corroboration_status": {
+      "not_implemented": 600
+    },
+    "gate_fired": {
+      "false": 600
+    },
+    "guard": "A term that separates admitted from rejected is not thereby validated: support carries half the score, so it separates them by construction. The ablation variants cannot reach 1.0 when a term is removed, so a fixed 0.45 threshold is stricter for them and the counts confound contribution with reachability. Corroboration is weighted 0.0 and reports not_implemented, so it is inactive and untested.",
+    "support_method": [
+      "lexical-coverage-corpus-idf-v2"
+    ],
+    "terms": {
+      "authority_tau": {
+        "admitted_minus_rejected": 0.0146,
+        "distinct_values": 5,
+        "max": 1.0,
+        "mean_when_admitted": 0.4406,
+        "mean_when_rejected": 0.426,
+        "median": 0.45,
+        "min": 0.4,
+        "spearman_with_human_label": -0.0164
+      },
+      "corroboration_rho": {
+        "admitted_minus_rejected": 0.0,
+        "distinct_values": 1,
+        "max": 0.0,
+        "mean_when_admitted": 0.0,
+        "mean_when_rejected": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "spearman_with_human_label": null
+      },
+      "currency_gamma": {
+        "admitted_minus_rejected": 0.1667,
+        "distinct_values": 150,
+        "max": 1.0,
+        "mean_when_admitted": 0.869,
+        "mean_when_rejected": 0.7023,
+        "median": 0.9075,
+        "min": 0.5359,
+        "spearman_with_human_label": -0.0519
+      },
+      "support_sigma": {
+        "admitted_minus_rejected": 0.3829,
+        "distinct_values": 307,
+        "max": 1.0,
+        "mean_when_admitted": 0.5862,
+        "mean_when_rejected": 0.2032,
+        "median": 0.5868,
+        "min": 0.0,
+        "spearman_with_human_label": 0.164
+      }
+    },
+    "threshold": 0.45,
+    "weights": {
+      "authority": 0.2,
+      "corroboration": 0.0,
+      "currency": 0.3,
+      "support": 0.5
+    }
+  },
+  "temporal_feasibility": {
+    "candidate_year_distribution": {
+      "2021": 22,
+      "2022": 84,
+      "2023": 116,
+      "2024": 117,
+      "2025": 141,
+      "2026": 120
+    },
+    "candidates_before_2020": 0,
+    "candidates_before_2022": 22,
+    "earliest_year": "2021",
+    "gamma_distinct_values": 150,
+    "gamma_range": [
+      0.5359,
+      1.0
+    ],
+    "latest_year": "2026",
+    "time_sensitive_decisions": {
+      "false": 120,
+      "true": 480
+    }
+  }
+}
