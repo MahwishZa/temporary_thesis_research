@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 import time
 from typing import Any, Dict, List
@@ -38,6 +39,9 @@ from experiments.analysis.evidence_quality import (  # noqa: E402
     LABELS,
     SCHEMA_VERSION,
     analyse,
+    blank_sheet_from,
+    compare_passes,
+    suggestion_anchoring,
     attach_candidate_text,
     check_annotations,
     component_diagnostics,
@@ -48,7 +52,11 @@ from experiments.analysis.evidence_quality import (  # noqa: E402
     stratified_sample,
     time_sensitivity_split,
 )
-from experiments.analysis.eq_audit import run_audit  # noqa: E402
+from experiments.analysis.eq_audit import (  # noqa: E402
+    label_fingerprint,
+    run_audit,
+    sha256,
+)
 
 RESULTS = os.path.join(_ROOT, "experiments", "results", "rag2_vs_scaf_alzheimer")
 DEFAULT_PER_QUESTION = os.path.join(RESULTS, "comparison_scientific", "per_question.jsonl")
@@ -253,9 +261,17 @@ def cmd_analyse(args: argparse.Namespace) -> int:
     result = analyse(merged)
     result["completeness"] = report
     result["partial"] = bool(args.allow_partial and not report["ready_for_analysis"])
-    out = _write_json(os.path.join(args.out, "evidence_quality_analysis.json"),
-                      {"provenance": _provenance(args, {"sheet": sheet, "key": key}),
-                       "result": result})
+    # The output is named after the sheet, so a corrected pass cannot silently
+    # overwrite the pilot's analysis: annotation_sheet_v2.jsonl produces
+    # evidence_quality_analysis_v2.json, and the two sit side by side.
+    stem = os.path.splitext(os.path.basename(sheet))[0]
+    suffix = stem[len("annotation_sheet"):] if stem.startswith("annotation_sheet") else f"_{stem}"
+    out = _write_json(
+        os.path.join(args.out, f"evidence_quality_analysis{suffix}.json"),
+        {"provenance": _provenance(args, {
+            "sheet": sheet, "key": key,
+            "annotation_pass": (rows[0].get("annotation_pass") if rows else None),
+        }), "result": result})
 
     print(f"labelled rows  {result.get('labelled_rows')}")
     print(f"label spread   {result.get('human_label_distribution')}")
@@ -330,6 +346,137 @@ def cmd_diagnostics(args: argparse.Namespace) -> int:
     return 0
 
 
+PILOT_MARKER = """\
+# INVALID FOR PRIMARY REPORTING -- anchored pilot annotation
+
+This directory holds the FIRST evidence-quality annotation pass, preserved
+exactly as it was collected. **It must not be used as independent human
+validation of SCAF or RAG2**, and no number derived from it belongs in the
+thesis as a human-validation result.
+
+## Why it is invalid
+
+The annotation interface displayed a machine suggestion beside every passage.
+The audit found:
+
+* **120 of 120** rows were shown the suggestion (`ai_suggestion_shown` true).
+* **120 of 120** human labels matched `ai_suggested_label` exactly.
+* **Zero** rows were annotated with the suggestion hidden.
+
+Perfect agreement with a suggestion that was visible on every row means the
+labels record agreement with the suggestion rule, not an independent judgement
+of the passages. There is no unanchored subset to calibrate against, so the
+effect cannot be estimated and subtracted -- it can only invalidate.
+
+This matters specifically, not just in general: the suggestion rule is lexical
+overlap between question and passage, and SCAF's support term sigma is *also*
+lexical overlap. The reported sigma-versus-human correlation of 0.7292, and the
+overall SCAF correlation of 0.6284 that sigma carries, are therefore
+substantially a measurement of the interface rather than of SCAF.
+
+## What is preserved here
+
+* `annotation_sheet.jsonl` -- the pilot labels, byte-for-byte
+* `pilot_integrity.json` -- SHA-256, label fingerprint, distribution, and the
+  anchoring evidence, so the original state stays provable
+* `evidence_quality_analysis.json` -- the analysis computed from it, if it
+  existed at the time of retirement
+
+Nothing here was edited. The pilot labels are a real record of what happened and
+are kept for the thesis's limitations section and for reproducibility.
+
+## What replaces it
+
+`annotation_sheet_v2.jsonl` in the parent directory: the **same 120 annotation
+ids**, the same questions and the same passages, with the judgements cleared, to
+be annotated with no suggestion generated and none displayed.
+"""
+
+
+def cmd_retire_pilot(args: argparse.Namespace) -> int:
+    """Preserve the anchored pilot and emit a fresh sheet over the same rows.
+
+    Nothing is deleted and nothing is edited. The pilot sheet is left exactly
+    where it is *and* copied into a marked directory with its integrity record;
+    the corrected sheet is written beside it under a different name, so neither
+    can be mistaken for the other by a later command or a later reader.
+    """
+    sheet = args.sheet or os.path.join(DEFAULT_OUT, "annotation_sheet.jsonl")
+    if not os.path.isfile(sheet):
+        print(f"ERROR: not found: {sheet}")
+        return 2
+
+    rows = _read_jsonl(sheet)
+    report = check_annotations(rows)
+    labelled = [r for r in rows if str(r.get("human_label", "")).strip().isdigit()]
+    human = [int(str(r["human_label"]).strip()) for r in labelled]
+    anchoring = suggestion_anchoring(labelled, human)
+
+    pilot_dir = args.pilot_dir or os.path.join(os.path.dirname(sheet), "pilot_anchored")
+    corrected = args.corrected or os.path.join(os.path.dirname(sheet),
+                                               "annotation_sheet_v2.jsonl")
+
+    if os.path.exists(corrected) and not args.force:
+        print(f"REFUSING: {corrected} already exists.\n"
+              "  Overwriting it would destroy corrected labels already collected.\n"
+              "  Pass --force only if you are certain it holds nothing you need.")
+        return 1
+
+    os.makedirs(pilot_dir, exist_ok=True)
+    preserved = os.path.join(pilot_dir, "annotation_sheet.jsonl")
+    if os.path.exists(preserved) and not args.force:
+        print(f"REFUSING: {preserved} already exists; the pilot is already preserved.")
+        return 1
+
+    shutil.copy2(sheet, preserved)                      # copy2 keeps mtime
+    integrity = {
+        "retired_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "status": "INVALID FOR PRIMARY REPORTING -- complete suggestion anchoring",
+        "original_path": os.path.abspath(sheet),
+        "sha256": sha256(sheet),
+        "label_fingerprint": label_fingerprint(rows),
+        "rows": len(rows),
+        "completeness": report,
+        "suggestion_anchoring": anchoring,
+    }
+    _write_json(os.path.join(pilot_dir, "pilot_integrity.json"), integrity)
+    with open(os.path.join(pilot_dir, "PILOT_INVALID.md"), "w",
+              encoding="utf-8", newline="\n") as handle:
+        handle.write(PILOT_MARKER)
+
+    prior_analysis = os.path.join(os.path.dirname(sheet), "evidence_quality_analysis.json")
+    if os.path.isfile(prior_analysis):
+        shutil.copy2(prior_analysis, os.path.join(pilot_dir, "evidence_quality_analysis.json"))
+
+    fresh = blank_sheet_from(rows)
+    _write_jsonl(corrected, fresh)
+
+    original_ids = [str(r.get("annotation_id")) for r in rows]
+    fresh_ids = [str(r.get("annotation_id")) for r in fresh]
+    identical = original_ids == fresh_ids
+
+    print(f"pilot preserved      {preserved}")
+    print(f"  sha256             {integrity['sha256']}")
+    print(f"  label fingerprint  {integrity['label_fingerprint']}")
+    print(f"  rows / labels      {report['total_rows']} / {report['label_distribution']}")
+    shown = (anchoring.get("shown") or {}).get("n", 0)
+    rate = (anchoring.get("all") or {}).get("agreement_rate")
+    print(f"  anchoring          {shown} of {len(labelled)} rows saw a suggestion; "
+          f"agreement {rate}")
+    print(f"  marker             {os.path.join(pilot_dir, 'PILOT_INVALID.md')}")
+    print(f"\noriginal left in place, unmodified: {sheet}")
+    print(f"\ncorrected sheet      {corrected}")
+    print(f"  rows               {len(fresh)}")
+    print(f"  same ids, in order {identical}")
+    print(f"  labels             all blank; no suggestion generated")
+    if not identical:
+        print("\nERROR: the corrected sheet does not carry the original ids.")
+        return 1
+    print("\nNext, annotate it with suggestions off:")
+    print(f"  python experiments/scripts/annotate.py --no-suggestions --sheet {corrected}")
+    return 0
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     """Read-only integrity audit. Opens files, changes nothing."""
     sheet = args.sheet or os.path.join(DEFAULT_OUT, "annotation_sheet.jsonl")
@@ -343,8 +490,20 @@ def cmd_audit(args: argparse.Namespace) -> int:
             print(f"ERROR: not found: {path}")
             return 2
 
+    # Auditing a corrected pass means checking it against the pilot it replaces.
+    # If --original-sheet is not given, look where retire-pilot puts it.
+    original = args.original_sheet
+    if not original:
+        candidate = os.path.join(os.path.dirname(sheet), "pilot_anchored",
+                                 "annotation_sheet.jsonl")
+        if os.path.abspath(candidate) != os.path.abspath(sheet) and os.path.isfile(candidate):
+            original = candidate
+
     report = run_audit(sheet, args.per_question, manifest, comparison_manifest,
-                       key_path=key, frozen_meta_path=frozen_meta)
+                       key_path=key, frozen_meta_path=frozen_meta,
+                       original_sheet_path=original)
+    if original:
+        print(f"comparing against the preserved pilot: {original}")
 
     section = ""
     for finding in report["findings"]:
@@ -410,7 +569,21 @@ def main(argv=None) -> int:
     aud.add_argument("--sheet", default="")
     aud.add_argument("--key", default="")
     aud.add_argument("--manifest", default="")
+    aud.add_argument("--original-sheet", default="",
+                     help="the pilot sheet, to verify the corrected pass covers "
+                          "exactly the same rows")
     aud.set_defaults(func=cmd_audit)
+
+    ret = sub.add_parser("retire-pilot",
+                         help="preserve the anchored pilot and emit a fresh sheet "
+                              "over the same 120 rows")
+    ret.add_argument("--sheet", default="")
+    ret.add_argument("--pilot-dir", default="")
+    ret.add_argument("--corrected", default="")
+    ret.add_argument("--force", action="store_true",
+                     help="overwrite an existing corrected sheet or pilot copy")
+    ret.set_defaults(func=cmd_retire_pilot, per_question=DEFAULT_PER_QUESTION,
+                     out=DEFAULT_OUT, frozen="")
 
     args = parser.parse_args(argv)
     return args.func(args)

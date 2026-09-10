@@ -574,3 +574,87 @@ def test_the_extra_ai_fields_do_not_confuse_the_check_command(sheet):
     rows = load_sheet(sheet)
     assert all("ai_suggested_label" in r for r in rows)
     assert check_annotations(rows)["ready_for_analysis"] is True
+
+
+# --------------------------------------------------------------------------
+# The corrected, human-only pass
+#
+# The pilot pass showed a lexical suggestion on all 120 rows and every label
+# matched it. These pin the mode that must not repeat that: no suggestion
+# generated, none displayed, and nothing machine-derived anywhere on the page.
+# --------------------------------------------------------------------------
+@pytest.fixture()
+def blind_server(sheet):
+    srv = _Server(annotate.AnnotationApp(sheet, show_suggestion=False))
+    yield srv
+    srv.close()
+
+
+def test_human_only_pass_generates_no_suggestion_at_all(blind_server):
+    """Not computed and withheld -- never computed. A suggestion that does not
+    exist cannot leak into the page or be mistaken for a label later."""
+    blind_server.post("/label", {"token": blind_server.app.token,
+                                 "annotation_id": "a000", "label": "1"})
+    row = load_sheet(blind_server.app.sheet)[0]
+    assert row["human_label"] == 1
+    assert row["ai_suggestion_shown"] is False
+    assert row["ai_suggestion_generated"] is False
+    for field in ("ai_suggested_label", "ai_explanation", "ai_coverage",
+                  "ai_rule_version"):
+        assert field not in row, field
+
+
+def test_suggestion_pass_still_records_that_one_was_generated(server):
+    server.post("/label", {"token": server.app.token,
+                           "annotation_id": "a000", "label": "1"})
+    row = load_sheet(server.app.sheet)[0]
+    assert row["ai_suggestion_shown"] is True
+    assert row["ai_suggestion_generated"] is True
+    assert str(row["ai_suggested_label"]).isdigit()
+
+
+def test_human_only_page_carries_no_machine_derived_value(tmp_path):
+    """The strongest form of the blinding check: a row loaded with every
+    machine field, rendered through the real server, searched for all of them."""
+    path = tmp_path / "annotation_sheet.jsonl"
+    save_sheet(str(path), [_contaminated_row()])
+    srv = _Server(annotate.AnnotationApp(str(path), show_suggestion=False))
+    try:
+        status_code, page = srv.get("/annotate")
+    finally:
+        srv.close()
+    assert status_code == 200
+    page = _visible(page)
+    for field in FORBIDDEN_IN_UI:
+        assert field not in page, field
+    for value in ("0.9137", "0.2481", "0.71", "0.88", "0.45", "high", "low",
+                  "2023-05-01", "pmc-fulltext"):
+        assert value not in page, value
+    for word in ("Computer suggestion", "Suggested label", "ai_suggested_label",
+                 "Why:"):
+        assert word not in page, word
+
+
+def test_human_only_page_still_shows_what_the_annotator_needs(blind_server):
+    _, page = blind_server.get("/annotate")
+    assert "amyloid clearance" in page                 # the question
+    assert "Amyloid clearance in Alzheimer disease" in page   # the passage
+    for value, text in LABEL_TEXT.items():             # the 0/1/2 definitions
+        assert f"{value} &mdash; {text}" in page
+    assert 'name="label"' in page                      # submit controls
+    assert page.count('name="label"') == 3
+
+
+def test_human_only_pass_still_requires_an_explicit_choice(blind_server):
+    """No suggestion exists to fall back on, and none is invented."""
+    status_code, _ = blind_server.post("/label", {"token": blind_server.app.token,
+                                                  "annotation_id": "a000",
+                                                  "label": ""})
+    assert status_code == 400
+    assert load_sheet(blind_server.app.sheet)[0]["human_label"] == ""
+
+
+def test_label_definitions_are_unchanged():
+    """Section 3: the 0/1/2 meanings must not drift between passes."""
+    assert LABEL_TEXT == {0: "Not relevant", 1: "Partially relevant",
+                          2: "Clearly relevant"}

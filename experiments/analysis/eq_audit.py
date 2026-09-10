@@ -151,23 +151,97 @@ def audit_annotations(sheet_rows: Sequence[Dict[str, Any]],
     add("no filter-training examples in the sample", _ok(not training),
         f"{len(training)} training row(s): {training[:5]}")
 
-    # human_label must not be a copy of the suggestion on every row.
-    both = [(int(str(r["human_label"]).strip()), int(str(r["ai_suggested_label"]).strip()))
+    # human_label must not be a copy of the suggestion. Agreement alone is not
+    # the fault -- a genuine judgement may legitimately match a suggestion, and
+    # on an easy row usually will. What is fatal is TOTAL agreement combined
+    # with TOTAL visibility, because then nothing distinguishes judgement from
+    # transcription and no unanchored subset exists to calibrate against.
+    both = [(int(str(r["human_label"]).strip()),
+             int(str(r["ai_suggested_label"]).strip()),
+             r.get("ai_suggestion_shown"))
             for r in sheet_rows
             if str(r.get("human_label", "")).strip().isdigit()
             and str(r.get("ai_suggested_label", "")).strip().isdigit()]
     if not both:
-        add("human_label is not a copy of ai_suggested_label", "SKIP",
-            "no row records both fields")
-    elif all(h == a for h, a in both):
-        add("human_label is not a copy of ai_suggested_label", "FAIL",
-            f"all {len(both)} rows are identical to the suggestion; this is what an "
-            "automatic copy looks like and must be ruled out by hand")
-    else:
-        differ = sum(1 for h, a in both if h != a)
         add("human_label is not a copy of ai_suggested_label", "PASS",
-            f"{differ} of {len(both)} rows differ from the suggestion")
+            "no row carries a machine suggestion at all, so no label can be a "
+            "copy of one")
+    else:
+        differ = sum(1 for h, a, _ in both if h != a)
+        unshown = sum(1 for _, _, shown in both if shown is False)
+        if differ == 0 and unshown == 0:
+            add("human_label is not a copy of ai_suggested_label", "FAIL",
+                f"all {len(both)} rows match the suggestion AND all {len(both)} were "
+                "shown it. Perfect agreement with an always-visible suggestion "
+                "records agreement with the rule, not an independent judgement, and "
+                "no unanchored rows exist to estimate the effect from")
+        elif differ == 0:
+            add("human_label is not a copy of ai_suggested_label", "WARN",
+                f"all {len(both)} rows match the suggestion, but {unshown} were "
+                "annotated without seeing it; agreement on hidden rows is evidence "
+                "the rule is right, not that the labels were copied")
+        else:
+            add("human_label is not a copy of ai_suggested_label", "PASS",
+                f"{differ} of {len(both)} rows differ from the suggestion")
 
+    return found
+
+
+def audit_corrected_pass(corrected_rows: Sequence[Dict[str, Any]],
+                         original_rows: Sequence[Dict[str, Any]]) -> List[Finding]:
+    """The corrected pass covers the pilot's rows, and saw no suggestion.
+
+    Two things must hold together. The sample must be *identical* -- same ids,
+    same questions, same passages -- or the corrected pass answers a different
+    question than the one already asked. And no suggestion may have been shown,
+    or the correction has reproduced the fault it exists to remove.
+    """
+    found: List[Finding] = []
+    add = lambda c, s, d="": found.append(Finding("corrected", c, s, d))  # noqa: E731
+
+    original_ids = [str(r.get("annotation_id")) for r in original_rows]
+    corrected_ids = [str(r.get("annotation_id")) for r in corrected_rows]
+    missing = sorted(set(original_ids) - set(corrected_ids))
+    added = sorted(set(corrected_ids) - set(original_ids))
+    add("same annotation ids as the pilot sample", _ok(not missing and not added),
+        f"{len(missing)} missing, {len(added)} added"
+        + (f"; missing {missing[:5]}" if missing else "")
+        + (f"; added {added[:5]}" if added else ""))
+    add("same row order as the pilot sample", _ok(original_ids == corrected_ids),
+        "ids match position for position" if original_ids == corrected_ids
+        else "same set, different order" if set(original_ids) == set(corrected_ids)
+        else "sets differ")
+
+    by_id = {str(r.get("annotation_id")): r for r in original_rows}
+    for field, name in (("question", "question text"), ("candidate_text", "passage text")):
+        changed = [str(r.get("annotation_id")) for r in corrected_rows
+                   if str(r.get("annotation_id")) in by_id
+                   and str(r.get(field, "")) != str(by_id[str(r["annotation_id"])].get(field, ""))]
+        add(f"{name} unchanged from the pilot sheet", _ok(not changed),
+            f"{len(changed)} row(s) differ: {changed[:5]}")
+
+    labelled = [r for r in corrected_rows
+                if str(r.get("human_label", "")).strip().isdigit()
+                and int(str(r["human_label"]).strip()) in VALID_LABELS]
+    shown = [r for r in labelled if r.get("ai_suggestion_shown") is True]
+    generated = [r for r in labelled
+                 if str(r.get("ai_suggested_label", "")).strip().isdigit()]
+    add("no suggestion was displayed during the corrected pass", _ok(not shown),
+        f"{len(shown)} of {len(labelled)} labelled row(s) recorded "
+        "ai_suggestion_shown=true")
+    add("no suggestion was generated for the corrected pass", _ok(not generated),
+        f"{len(generated)} of {len(labelled)} labelled row(s) carry an "
+        "ai_suggested_label")
+
+    timed = [r for r in labelled if str(r.get("annotated_utc", "")).strip()]
+    add("labels were entered through the interface", _ok(len(timed) == len(labelled)),
+        f"{len(timed)} of {len(labelled)} labelled row(s) carry an annotated_utc "
+        "timestamp, which only a button press writes")
+
+    marked = [r for r in corrected_rows if r.get("annotation_pass")]
+    add("rows are marked as the corrected pass",
+        "PASS" if len(marked) == len(corrected_rows) else "WARN",
+        f"{len(marked)} of {len(corrected_rows)} row(s) carry annotation_pass")
     return found
 
 
@@ -284,7 +358,11 @@ def audit_anchoring(sheet_rows: Sequence[Dict[str, Any]]) -> List[Finding]:
     stats = suggestion_anchoring(labelled, human)
 
     if not stats.get("rows_with_a_recorded_suggestion"):
-        add("anchoring can be measured", "SKIP", str(stats.get("note", "")))
+        # No suggestion at all is the goal state, not a missing measurement --
+        # but only when the rows say so explicitly.
+        deliberate = stats.get("suggestions_generated") is False
+        add("free of suggestion anchoring", "PASS" if deliberate else "SKIP",
+            str(stats.get("note", "")))
         return found
 
     shown = (stats.get("shown") or {}).get("n", 0)
@@ -323,7 +401,8 @@ def run_audit(sheet_path: str, per_question_path: str, manifest_path: str,
               expected: Optional[Dict[int, int]] = None,
               expected_rows: int = EXPECTED_ROWS,
               expected_population: int = EXPECTED_POPULATION,
-              expected_questions: int = EXPECTED_QUESTIONS) -> Dict[str, Any]:
+              expected_questions: int = EXPECTED_QUESTIONS,
+              original_sheet_path: str = "") -> Dict[str, Any]:
     """Every check, against files only. Returns findings plus integrity digests."""
     sheet_rows = _read_jsonl(sheet_path)
     decisions = load_decisions(per_question_path)
@@ -343,6 +422,9 @@ def run_audit(sheet_path: str, per_question_path: str, manifest_path: str,
     findings += audit_sampling(manifest, sheet_rows, decisions, expected_rows,
                                expected_population, expected_questions)
     findings += audit_anchoring(sheet_rows)
+
+    if original_sheet_path and os.path.isfile(original_sheet_path):
+        findings += audit_corrected_pass(sheet_rows, _read_jsonl(original_sheet_path))
 
     if key_path and os.path.isfile(key_path):
         key_ids = {str(r.get("annotation_id")) for r in _read_jsonl(key_path)}

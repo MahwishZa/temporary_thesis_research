@@ -271,7 +271,13 @@ class AnnotationApp:
                            if str(r.get("annotation_id")) == str(annotation_id)), None)
             if target is None:
                 raise KeyError(f"unknown annotation_id {annotation_id!r}")
-            suggestion = suggestion_for(target, shown=self.show_suggestion)
+            # With suggestions off, none is computed at all -- not computed and
+            # withheld. A suggestion that is never generated cannot leak into the
+            # page, cannot be stored beside the label, and cannot be mistaken for
+            # one later. Only the fact of its absence is recorded.
+            suggestion = (suggestion_for(target, shown=True) if self.show_suggestion
+                          else {"ai_suggestion_shown": False,
+                                "ai_suggestion_generated": False})
             updated = record_label(self.rows, annotation_id, label,
                                    notes=notes, suggestion=suggestion)
             save_sheet(self.sheet, self.rows)

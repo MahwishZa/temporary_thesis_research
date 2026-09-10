@@ -1,5 +1,18 @@
 # Reading the passages — a step-by-step guide
 
+> **The first attempt has to be done again.** The interface used to show a
+> computer suggestion beside every passage, and the audit found that all 120
+> answers matched that suggestion exactly. That means the answers recorded
+> agreement with the computer rather than an independent reading, so they cannot
+> be used. Nothing was your fault — the interface was built wrong.
+>
+> The suggestion has been removed. This second pass covers **exactly the same
+> 120 passages**, with no suggestion of any kind. Your reading is now the only
+> signal, which is the whole point.
+>
+> The first set of answers is kept, unchanged, in `pilot_anchored/`. It is
+> labelled invalid for reporting and is not deleted.
+
 This guide is for the person doing the reading. You do not need to know anything
 about the code, and you do not need to understand the words "annotation",
 "SCAF" or "RAG2" to do this well.
@@ -58,24 +71,14 @@ So that you decide the same way on day one and day three:
 
 ---
 
-## The computer's suggestion
+## There is no computer suggestion any more
 
-Each passage comes with a suggestion, and a one-line reason for it.
+The corrected pass shows you the question, the passage, and the three buttons.
+Nothing else. No suggestion is displayed, and none is even calculated — so there
+is nothing to agree or disagree with.
 
-**The suggestion counts how many words from the question appear in the passage.
-That is all it does.** It has no medical knowledge whatsoever. It cannot tell
-that "memory decline" and "cognitive impairment" mean nearly the same thing, so
-it will be confidently wrong every time a passage answers the question in
-different words.
-
-Those rows — where the suggestion is wrong and you can see that it is wrong —
-are the ones where your reading is worth something. Please read the passage
-before you look at the suggestion, and press the button *you* believe is right.
-
-Both answers are stored: yours as `human_label`, the computer's as
-`ai_suggested_label`. They are never mixed. If it later turns out that the two
-agree on almost every row, that is treated as a warning that the suggestion was
-being followed rather than as a confirmation that it was right.
+If you find yourself unsure, that is normal and it is information. Press **1**
+and write a short note. Do not go looking for the old answers.
 
 ---
 
@@ -84,8 +87,12 @@ being followed rather than as a confirmation that it was right.
 Open a terminal (on Windows: PowerShell) in the repository folder.
 
 ```powershell
-python experiments\scripts\annotate.py
+python experiments\scripts\annotate.py --no-suggestions --sheet experiments\results\rag2_vs_scaf_alzheimer\evidence_quality\annotation_sheet_v2.jsonl
 ```
+
+That is one long line. `--no-suggestions` is what removes the computer's
+opinion; `annotation_sheet_v2.jsonl` is the corrected sheet covering the same
+120 passages.
 
 A web page opens on your own computer. Nothing is uploaded and nothing leaves
 the machine — the passages, the questions and your answers all stay in this
@@ -104,21 +111,17 @@ time and replaces it when you press a new button.
 
 ### Options
 
-```powershell
-python experiments\scripts\annotate.py --no-suggestions   # hide the suggestion
-python experiments\scripts\annotate.py --port 9000        # if 8765 is in use
-python experiments\scripts\annotate.py --no-browser       # do not auto-open
-python experiments\scripts\annotate.py --sheet <path>     # a different file
-```
+Add these to the command above if you need them:
 
-`--no-suggestions` shows the same passages with the suggestion hidden. Doing a
-handful of rows that way — first, before you have seen any suggestions — gives a
-comparison point for how much the suggestions moved your answers.
+```powershell
+--port 9000        # if something else is already using port 8765
+--no-browser       # do not open a browser window automatically
+```
 
 ### Checking how far you have got
 
 ```powershell
-python experiments\scripts\evidence_quality.py check
+python experiments\scripts\evidence_quality.py check --sheet experiments\results\rag2_vs_scaf_alzheimer\evidence_quality\annotation_sheet_v2.jsonl
 ```
 
 Prints how many are done, how many are left, and whether anything is invalid.
@@ -135,6 +138,10 @@ Prints how many are done, how many are left, and whether anything is invalid.
    cannot arrive by accident.
 
 2. **Do not skip rows you find hard.** Press 1 and leave a note.
+
+3. **Do not open the old answers.** They are in `pilot_anchored/`, and they are
+   the computer's suggestions in all but name. Reading them would put you right
+   back where the first attempt ended.
 
 When the last passage is done, the page says so. Tell your supervisor — they run
 the analysis.

@@ -345,6 +345,76 @@ def _summary(values: Sequence[float]) -> Dict[str, Any]:
     }
 
 
+#: Fields the corrected pass must start empty. The suggestion fields are cleared
+#: too: a corrected row must carry no machine suggestion at all, so that
+#: "the annotator agreed with the suggestion" is not even expressible.
+CLEARED_FOR_SECOND_PASS = ("human_label", "human_notes", "annotated_utc",
+                           "ai_suggested_label", "ai_explanation", "ai_rule_version",
+                           "ai_coverage", "ai_suggestion_shown",
+                           "ai_suggestion_generated")
+
+#: Written on every corrected row, so the two passes can never be confused for
+#: one another or pooled by accident.
+SECOND_PASS_LABEL = "corrected-human-only-v1"
+
+
+def blank_sheet_from(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """A fresh, unlabelled sheet over exactly the rows of an existing one.
+
+    Same ``annotation_id`` values, same questions, same passages, same order --
+    the sample is not touched, because re-sampling would answer a different
+    question than the one the pilot already asked. Only the judgements are
+    cleared, along with every trace of the suggestion that contaminated them.
+
+    The pilot rows are read, never written. This returns new dictionaries.
+    """
+    fresh: List[Dict[str, Any]] = []
+    for row in rows:
+        new = {k: v for k, v in row.items() if k not in CLEARED_FOR_SECOND_PASS}
+        new["human_label"] = ""
+        new["human_notes"] = ""
+        new["annotation_pass"] = SECOND_PASS_LABEL
+        fresh.append(new)
+    return fresh
+
+
+def compare_passes(pilot: Sequence[Dict[str, Any]],
+                   corrected: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """How the corrected labels relate to the pilot's, without pooling them.
+
+    Reported for transparency, never to merge the two. The pilot labels are not
+    independent human judgements -- every one matched a displayed suggestion --
+    so they cannot be averaged with, substituted for, or used to adjust the
+    corrected ones. What this does show is how far the corrected pass moved, and
+    in which direction.
+    """
+    pilot_by_id = {str(r.get("annotation_id")): r for r in pilot}
+    pairs = []
+    for row in corrected:
+        old = pilot_by_id.get(str(row.get("annotation_id")))
+        if old is None:
+            continue
+        a, b = str(old.get("human_label", "")).strip(), str(row.get("human_label", "")).strip()
+        if a.isdigit() and b.isdigit() and int(a) in VALID_LABELS and int(b) in VALID_LABELS:
+            pairs.append((int(a), int(b)))
+    if not pairs:
+        return {"n": 0, "note": "no row carries a valid label in both passes"}
+    agree = sum(1 for a, b in pairs if a == b)
+    return {
+        "n": len(pairs),
+        "agreement_rate": round(agree / len(pairs), 4),
+        "corrected_above_pilot": sum(1 for a, b in pairs if b > a),
+        "corrected_below_pilot": sum(1 for a, b in pairs if b < a),
+        "mean_signed_change": round(sum(b - a for a, b in pairs) / len(pairs), 4),
+        "spearman_pilot_vs_corrected": spearman([a for a, _ in pairs],
+                                                [b for _, b in pairs]),
+        "guard": ("descriptive only. The pilot labels reproduced a displayed "
+                  "lexical suggestion exactly and are not independent human "
+                  "judgements; they must not be pooled with, averaged against, "
+                  "or used to adjust the corrected labels."),
+    }
+
+
 def suggestion_anchoring(rows: Sequence[Dict[str, Any]],
                          human: Sequence[int]) -> Dict[str, Any]:
     """How far the human labels track the suggestion the annotator was shown.
@@ -371,9 +441,20 @@ def suggestion_anchoring(rows: Sequence[Dict[str, Any]],
         "rows_without_a_recorded_suggestion": len(rows) - len(paired),
     }
     if not paired:
-        out["note"] = ("no ai_suggested_label on any row: either the sheet was "
-                       "filled in by hand, or it predates the annotation "
-                       "interface. Anchoring cannot be assessed from this file.")
+        # Distinguish "deliberately none" from "unknown". A human-only pass
+        # stamps ai_suggestion_generated=False on every row it saves, and that
+        # is the strongest possible anchoring result -- not a gap in the data.
+        deliberate = [r for r in rows if r.get("ai_suggestion_generated") is False]
+        if len(deliberate) == len(rows) and rows:
+            out["suggestions_generated"] = False
+            out["note"] = ("no suggestion was generated for any row: this is a "
+                           "human-only pass, so there is no anchoring to measure "
+                           "and none to correct for.")
+        else:
+            out["note"] = ("no ai_suggested_label on any row, and no row records "
+                           "that a suggestion was deliberately withheld: the sheet "
+                           "was filled in outside the interface, or predates it. "
+                           "Anchoring cannot be assessed from this file.")
         return out
 
     def _shown(record: Dict[str, Any]) -> str:

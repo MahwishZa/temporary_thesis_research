@@ -371,7 +371,8 @@ def test_anchoring_skips_cleanly_when_no_suggestion_was_recorded(study):
     stats = suggestion_anchoring(rows, [int(r["human_label"]) for r in rows])
     assert stats["rows_with_a_recorded_suggestion"] == 0
     assert "note" in stats
-    assert status(audit_anchoring(rows), "anchoring can be measured") == "SKIP"
+    assert "outside the interface" in stats["note"]
+    assert status(audit_anchoring(rows), "free of suggestion anchoring") == "SKIP"
 
 
 def test_analyse_now_carries_the_anchoring_and_clustering_blocks(study):
@@ -411,3 +412,190 @@ def test_fingerprint_ignores_formatting_but_not_labels(study):
     changed = copy.deepcopy(rows)
     changed[0]["human_label"] = 0 if changed[0]["human_label"] != 0 else 2
     assert label_fingerprint(changed) != baseline
+
+
+# --------------------------------------------------------------------------
+# The corrected, human-only second pass
+#
+# The pilot failed in one specific way: every row was shown a lexical
+# suggestion and every label matched it. These pin the correction -- the same
+# rows, no suggestion, and an audit that can tell the two passes apart.
+# --------------------------------------------------------------------------
+from experiments.analysis.evidence_quality import (  # noqa: E402
+    SECOND_PASS_LABEL,
+    blank_sheet_from,
+    compare_passes,
+)
+from experiments.analysis.eq_audit import audit_corrected_pass  # noqa: E402
+
+
+def test_blank_sheet_keeps_the_sample_and_clears_the_judgements(study):
+    fresh = blank_sheet_from(study["blind"])
+    assert [r["annotation_id"] for r in fresh] == \
+           [r["annotation_id"] for r in study["blind"]]
+    for new, old in zip(fresh, study["blind"]):
+        assert new["question"] == old["question"]
+        assert new["candidate_text"] == old["candidate_text"]
+        assert new["human_label"] == ""
+        assert new["human_notes"] == ""
+        assert new["annotation_pass"] == SECOND_PASS_LABEL
+
+
+def test_blank_sheet_removes_every_trace_of_the_suggestion(study):
+    """A corrected row must carry no suggestion, so 'the annotator agreed with
+    the suggestion' is not even expressible for it."""
+    fresh = blank_sheet_from(study["blind"])
+    for row in fresh:
+        for field in ("ai_suggested_label", "ai_explanation", "ai_rule_version",
+                      "ai_coverage", "ai_suggestion_shown", "ai_suggestion_generated",
+                      "annotated_utc"):
+            assert field not in row, field
+
+
+def test_blank_sheet_does_not_mutate_the_pilot(study):
+    before = copy.deepcopy(study["blind"])
+    blank_sheet_from(study["blind"])
+    assert study["blind"] == before
+
+
+def _corrected(study, **overrides):
+    rows = blank_sheet_from(study["blind"])
+    for i, row in enumerate(rows):
+        row["human_label"] = [2, 2, 1, 0, 2][i % 5]
+        row["annotated_utc"] = "2026-09-10T12:00:00Z"
+        row["ai_suggestion_shown"] = False
+        row["ai_suggestion_generated"] = False
+        row.update(overrides)
+    return rows
+
+
+def test_a_clean_corrected_pass_passes(study):
+    findings = audit_corrected_pass(_corrected(study), study["blind"])
+    assert [f for f in findings if f.status == "FAIL"] == []
+
+
+def test_catches_a_corrected_pass_that_dropped_rows(study):
+    rows = _corrected(study)[:-1]
+    assert status(audit_corrected_pass(rows, study["blind"]),
+                  "same annotation ids as the pilot sample") == "FAIL"
+
+
+def test_catches_a_corrected_pass_that_resampled(study):
+    rows = _corrected(study)
+    rows[0]["annotation_id"] = "eq-9999"
+    assert status(audit_corrected_pass(rows, study["blind"]),
+                  "same annotation ids as the pilot sample") == "FAIL"
+
+
+def test_catches_reordered_rows(study):
+    rows = list(reversed(_corrected(study)))
+    findings = audit_corrected_pass(rows, study["blind"])
+    assert status(findings, "same annotation ids as the pilot sample") == "PASS"
+    assert status(findings, "same row order as the pilot sample") == "FAIL"
+
+
+def test_catches_edited_passage_text_in_the_corrected_pass(study):
+    rows = _corrected(study)
+    rows[0]["candidate_text"] = "a different passage"
+    assert status(audit_corrected_pass(rows, study["blind"]),
+                  "passage text unchanged from the pilot sheet") == "FAIL"
+
+
+def test_catches_edited_question_text_in_the_corrected_pass(study):
+    rows = _corrected(study)
+    rows[0]["question"] = "a different question?"
+    assert status(audit_corrected_pass(rows, study["blind"]),
+                  "question text unchanged from the pilot sheet") == "FAIL"
+
+
+def test_catches_a_corrected_pass_that_showed_suggestions(study):
+    """The correction reproducing the original fault must not pass."""
+    rows = _corrected(study, ai_suggestion_shown=True)
+    assert status(audit_corrected_pass(rows, study["blind"]),
+                  "no suggestion was displayed during the corrected pass") == "FAIL"
+
+
+def test_catches_a_corrected_pass_that_generated_suggestions(study):
+    rows = _corrected(study, ai_suggested_label=2)
+    assert status(audit_corrected_pass(rows, study["blind"]),
+                  "no suggestion was generated for the corrected pass") == "FAIL"
+
+
+def test_catches_labels_that_never_went_through_the_interface(study):
+    rows = _corrected(study)
+    for row in rows:
+        row.pop("annotated_utc")
+    assert status(audit_corrected_pass(rows, study["blind"]),
+                  "labels were entered through the interface") == "FAIL"
+
+
+# -- the visibility-aware copy check ---------------------------------------
+def test_total_agreement_with_a_visible_suggestion_fails(study):
+    """The exact pilot failure: 100% agreement AND 100% visibility."""
+    rows = copy.deepcopy(study["blind"])
+    for row in rows:
+        row["human_label"] = row["ai_suggested_label"]
+        row["ai_suggestion_shown"] = True
+    assert status(_annotations(study, rows),
+                  "human_label is not a copy of ai_suggested_label") == "FAIL"
+
+
+def test_total_agreement_with_a_hidden_suggestion_is_only_a_warning(study):
+    """Section 8: agreement alone is not the fault. A genuine judgement may
+    legitimately match a suggestion it never saw."""
+    rows = copy.deepcopy(study["blind"])
+    for row in rows:
+        row["human_label"] = row["ai_suggested_label"]
+        row["ai_suggestion_shown"] = False
+    assert status(_annotations(study, rows),
+                  "human_label is not a copy of ai_suggested_label") == "WARN"
+
+
+def test_partial_agreement_with_a_visible_suggestion_passes(study):
+    """Agreement on some rows is normal and must not be penalised."""
+    rows = copy.deepcopy(study["blind"])
+    for i, row in enumerate(rows):
+        row["human_label"] = row["ai_suggested_label"] if i % 3 else 0
+        row["ai_suggestion_shown"] = True
+    assert status(_annotations(study, rows),
+                  "human_label is not a copy of ai_suggested_label") == "PASS"
+
+
+def test_a_sheet_with_no_suggestions_at_all_passes_the_copy_check(study):
+    rows = _corrected(study)
+    assert status(_annotations(study, rows),
+                  "human_label is not a copy of ai_suggested_label") == "PASS"
+
+
+# -- comparing the two passes without pooling them -------------------------
+def test_compare_passes_reports_movement_without_merging(study):
+    corrected = _corrected(study)
+    result = compare_passes(study["blind"], corrected)
+    assert result["n"] == len(corrected)
+    assert 0.0 <= result["agreement_rate"] <= 1.0
+    assert "guard" in result and "must not be pooled" in result["guard"]
+
+
+def test_compare_passes_handles_an_unlabelled_corrected_sheet(study):
+    assert compare_passes(study["blind"], blank_sheet_from(study["blind"]))["n"] == 0
+
+
+def test_a_human_only_pass_is_reported_as_free_of_anchoring(study):
+    """No suggestion generated is the goal state, not a missing measurement --
+    and it must read that way to someone who is not a statistician."""
+    rows = _corrected(study)
+    stats = suggestion_anchoring(rows, [int(r["human_label"]) for r in rows])
+    assert stats["suggestions_generated"] is False
+    assert "human-only pass" in stats["note"]
+    assert "filled in outside" not in stats["note"]
+    assert status(audit_anchoring(rows), "free of suggestion anchoring") == "PASS"
+
+
+def test_a_sheet_with_no_suggestion_metadata_at_all_is_not_claimed_clean(study):
+    """Absence of evidence is not evidence of absence: a sheet that simply
+    lacks the fields must not be reported as unanchored."""
+    rows = _corrected(study)
+    for row in rows:
+        row.pop("ai_suggestion_generated")
+        row.pop("ai_suggestion_shown")
+    assert status(audit_anchoring(rows), "free of suggestion anchoring") == "SKIP"

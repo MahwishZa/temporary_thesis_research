@@ -172,12 +172,13 @@ def load_sheet(path: str) -> List[Dict[str, Any]]:
 
 #: Fields the interface may add. Everything else in a row is left untouched.
 WRITABLE = ("human_label", "human_notes", "ai_suggested_label", "ai_explanation",
-            "ai_rule_version", "ai_coverage", "ai_suggestion_shown", "annotated_utc")
+            "ai_rule_version", "ai_coverage", "ai_suggestion_shown",
+            "ai_suggestion_generated", "annotated_utc")
 
 #: Copied from the suggestion onto the row, in this order. ``human_label`` is
 #: deliberately absent: no path through this module writes a suggestion there.
 SUGGESTION_FIELDS = ("ai_suggested_label", "ai_explanation", "ai_rule_version",
-                     "ai_coverage", "ai_suggestion_shown")
+                     "ai_coverage", "ai_suggestion_shown", "ai_suggestion_generated")
 
 #: Anything matching these must never reach the browser.
 FORBIDDEN_IN_UI = ("scaf_score", "rag2_score", "scaf_admitted", "rag2_admitted",
@@ -267,14 +268,20 @@ def record_label(rows: List[Dict[str, Any]], annotation_id: str, label: Any,
 def suggestion_for(row: Dict[str, Any], shown: bool) -> Dict[str, Any]:
     """The suggestion to *store* on a row, tagged with whether it was displayed.
 
-    It is computed even under ``--no-suggestions``, because the comparison that
-    makes the anchoring warning above measurable needs both halves: agreement
-    when the annotator saw the suggestion, and agreement when they did not.
-    ``ai_suggestion_shown`` is the field that tells those two apart, so it is
-    written on every labelled row and never inferred later.
+    ``shown`` is written on every labelled row and never inferred later: it is
+    the field that separates an anchored label from an unanchored one, and the
+    first pilot pass showed why that matters -- 120 of 120 rows were shown a
+    suggestion and 120 of 120 labels matched it exactly, which is unusable as
+    independent validation.
+
+    Callers running a human-only pass should not call this at all. Storing
+    ``{"ai_suggestion_shown": False, "ai_suggestion_generated": False}`` records
+    that no suggestion existed, which is a stronger guarantee than one that was
+    computed and withheld.
     """
     payload = suggest_label(row.get("question", ""), row.get("candidate_text", ""))
     payload["ai_suggestion_shown"] = bool(shown)
+    payload["ai_suggestion_generated"] = True
     return payload
 
 
