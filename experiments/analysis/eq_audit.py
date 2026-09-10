@@ -42,14 +42,30 @@ from experiments.analysis.evidence_quality import (
     tertile_edges,
 )
 
-#: The shape of the completed study, as reported. These are what the audit
-#: checks the artifacts *against*; they are parameters rather than literals
-#: buried in the checks so that the checks themselves can be exercised on a
-#: smaller study in the tests, and so a reader can see what is being assumed.
-EXPECTED_DISTRIBUTION = {2: 75, 1: 41, 0: 4}
+#: The shape of the study's SAMPLE. These are properties of the sampling design,
+#: so they hold for every annotation pass over that sample: the same 120 rows
+#: drawn from the same 600 decisions across the same 30 questions.
 EXPECTED_ROWS = 120
 EXPECTED_POPULATION = 600
 EXPECTED_QUESTIONS = 30
+
+#: The label distribution of the RETIRED ANCHORED PILOT, and of nothing else.
+#:
+#: A label distribution is not a property of the sample -- it is the outcome of
+#: one particular annotation pass. Two independent human passes over identical
+#: passages will produce different distributions, and requiring the second to
+#: reproduce the first would be requiring it not to be independent. Treating this
+#: as a global expectation was a real bug: it failed the corrected human-only
+#: pass ({0: 14, 1: 46, 2: 60}) for the sole reason that it disagreed with the
+#: pilot it was created to replace.
+#:
+#: It survives only so the preserved pilot can still be checked against its own
+#: recorded outcome. Pass it explicitly, or let ``run_audit`` read the pilot's
+#: own ``pilot_integrity.json``; never apply it to a corrected pass.
+PILOT_DISTRIBUTION = {2: 75, 1: 41, 0: 4}
+
+#: Rows written by a corrected human-only pass carry this in ``annotation_pass``.
+CORRECTED_PASS_LABEL = "corrected-human-only-v1"
 
 
 class Finding:
@@ -98,9 +114,17 @@ def _read_jsonl(path: str) -> List[Dict[str, Any]]:
 def audit_annotations(sheet_rows: Sequence[Dict[str, Any]],
                       decisions: Sequence[Dict[str, Any]],
                       expected: Optional[Dict[int, int]] = None,
-                      expected_rows: int = EXPECTED_ROWS) -> List[Finding]:
-    """The labels themselves: complete, valid, unique, and really annotated."""
-    expected = EXPECTED_DISTRIBUTION if expected is None else expected
+                      expected_rows: int = EXPECTED_ROWS,
+                      independent: bool = False) -> List[Finding]:
+    """The labels themselves: complete, valid, unique, and really annotated.
+
+    ``expected`` is the label distribution this pass is required to reproduce.
+    Pass it only when auditing a pass whose outcome is already on record -- the
+    retired pilot against its own ``pilot_integrity.json``. Leave it ``None`` for
+    an independent pass: its distribution is the result being collected, not a
+    target to hit, and checking it against another pass's outcome would test
+    agreement rather than validity.
+    """
     found: List[Finding] = []
     add = lambda c, s, d="": found.append(Finding("annotations", c, s, d))  # noqa: E731
 
@@ -116,10 +140,23 @@ def audit_annotations(sheet_rows: Sequence[Dict[str, Any]],
 
     labels = [int(v) for v in raw if v.isdigit() and int(v) in VALID_LABELS]
     distribution = dict(sorted(Counter(labels).items()))
-    add("label distribution matches the reported "
-        + "/".join(str(expected[k]) for k in sorted(expected, reverse=True)),
-        _ok(distribution == dict(sorted(expected.items()))),
-        f"found {distribution}, expected {dict(sorted(expected.items()))}")
+    if expected is None and independent:
+        add("label distribution is recorded (independent pass -- no target)", "PASS",
+            f"{distribution}. This is the outcome of an independent human pass, "
+            "not a value it was required to produce. It is NOT compared against "
+            "the retired anchored pilot's distribution, and it is not expected "
+            "to match it: two independent readings of the same passages "
+            "legitimately differ, and requiring agreement would defeat the "
+            "purpose of re-annotating.")
+    elif expected is None:
+        add("label distribution is recorded (no outcome on record)", "PASS",
+            f"{distribution}. No recorded outcome was supplied for this pass, so "
+            "the distribution is reported rather than checked.")
+    else:
+        add("label distribution matches the recorded outcome for this pass "
+            + "/".join(str(expected[k]) for k in sorted(expected, reverse=True)),
+            _ok(distribution == dict(sorted(expected.items()))),
+            f"found {distribution}, on record {dict(sorted(expected.items()))}")
 
     ids = Counter(str(r.get("annotation_id")) for r in sheet_rows)
     duplicates = [i for i, n in ids.items() if n > 1]
@@ -266,7 +303,14 @@ def audit_provenance(manifest: Dict[str, Any], comparison_manifest: Dict[str, An
             f"retrieval_is_medcpt={is_medcpt}"
             + ("" if is_medcpt else "  <- this is the lexical-development set"))
 
-    source = os.path.basename(os.path.dirname(str(manifest.get("source_per_question", ""))))
+    # The manifest records whatever path the machine that ran `export` used, and
+    # that machine is usually Windows while an audit may run anywhere. os.path
+    # on POSIX does not split backslashes, so ntpath separators must be
+    # normalised first or the directory reads as empty and a correct manifest
+    # fails. Split on both, always.
+    recorded = str(manifest.get("source_per_question", "")).replace("\\", "/")
+    parts = [p for p in recorded.split("/") if p]
+    source = parts[-2] if len(parts) >= 2 else ""
     add("sample was built from comparison_scientific/",
         _ok(source == "comparison_scientific"),
         f"source_per_question is under '{source or '(unrecorded)'}'")
@@ -416,8 +460,40 @@ def run_audit(sheet_path: str, per_question_path: str, manifest_path: str,
         with open(frozen_meta_path, "r", encoding="utf-8") as handle:
             frozen_meta = json.load(handle)
 
+    # Which pass is this? An independent pass carries its own marker and has no
+    # distribution to reproduce; only the retired pilot is checked against a
+    # recorded outcome, and that outcome comes from the pilot's own integrity
+    # record rather than from a constant in this file.
+    corrected = bool(sheet_rows) and all(
+        r.get("annotation_pass") == CORRECTED_PASS_LABEL for r in sheet_rows)
+    if corrected:
+        expected = None
+    elif expected is None:
+        # The pilot's recorded outcome lives beside the pilot sheet -- whether
+        # that is the sheet under audit or the one it is being compared against.
+        for neighbour in (sheet_path, original_sheet_path):
+            if not neighbour:
+                continue
+            integrity = os.path.join(os.path.dirname(os.path.abspath(neighbour)),
+                                     "pilot_integrity.json")
+            if os.path.isfile(integrity):
+                with open(integrity, "r", encoding="utf-8") as handle:
+                    recorded = ((json.load(handle).get("completeness") or {})
+                                .get("label_distribution") or {})
+                if recorded:
+                    expected = {int(k): int(v) for k, v in recorded.items()}
+                    break
+
     findings: List[Finding] = []
-    findings += audit_annotations(sheet_rows, decisions, expected, expected_rows)
+    findings.append(Finding(
+        "annotations", "annotation pass identified", "PASS",
+        f"{CORRECTED_PASS_LABEL}: an independent human-only pass. Its label "
+        "distribution is its own result and is not required to match the "
+        "retired anchored pilot." if corrected else
+        "no corrected-pass marker: treated as the original pass, checked "
+        "against its recorded outcome where one exists."))
+    findings += audit_annotations(sheet_rows, decisions, expected, expected_rows,
+                                  independent=corrected)
     findings += audit_provenance(manifest, comparison_manifest, frozen_meta)
     findings += audit_sampling(manifest, sheet_rows, decisions, expected_rows,
                                expected_population, expected_questions)

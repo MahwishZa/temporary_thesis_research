@@ -308,13 +308,22 @@ the guards refuse rather than downgrade.
 
 ## 12. Limitations
 
-**The corpus cannot currently answer the research question.** The approved
-PubMed strategy uses a five-year window
+**The corpus has almost no age contrast.** The approved PubMed strategy uses a
+five-year window
 (`"2021/08/30"[Date - Publication] : "2026/08/30"[Date - Publication]`), so **7
-of 43,409 documents predate 2020** — 0.02%. A recency comparison needs an older
-stratum and this corpus has none; FRB-PAIRS cannot be constructed from it. This
-is a corpus-design finding requiring a supervisor decision, not a software
-defect. See [`docs/experiments/preliminary_rag2_vs_scaf.md`](docs/experiments/preliminary_rag2_vs_scaf.md) §0.
+of 43,409 documents predate 2020** — 0.02%. In the scientific run this leaves
+the currency term γ confined to [0.536, 1.000], contributing 14.7% of the
+admission score's variance against support's 83.5%. See
+[`docs/experiments/preliminary_rag2_vs_scaf.md`](docs/experiments/preliminary_rag2_vs_scaf.md) §0.
+
+**This does not block FRB-PAIRS, and an earlier version of this section said it
+did.** Proposal §5.2 specifies FRB-PAIRS as derived from **MedChangeQA**, an
+externally authored dataset, behind an explicit *provenance firewall* — the
+primary claim is required to rest on external material precisely so a positive
+result cannot be unfalsifiable by construction. The corpus was never the
+intended source. The probe is implemented in
+[`experiments/recency_bias/`](experiments/recency_bias/README.md) and needs the
+dataset plus the already-trained filter, not a corpus rebuild.
 
 **No accuracy has been measured.** `docs/reproduction/reproduction_results.md` is
 deliberately blank. Every result table in this repository is either empty or

@@ -1,0 +1,193 @@
+{
+  "analysis_version": "answer-quality-readiness-v1",
+  "artifacts_inspected": [
+    "data/datasets/thesis_questions/dev_questions.jsonl",
+    "experiments/results/rag2_vs_scaf_alzheimer/comparison_scientific/per_question.jsonl",
+    "experiments/results/rag2_vs_scaf_alzheimer/comparison_scientific/manifest.json",
+    "architecture/rag2/rag2/evaluation.py",
+    "experiments/results/rag2_vs_scaf_alzheimer/evidence_quality/annotation_sheet_v2.jsonl",
+    "experiments/results/rag2_vs_scaf_alzheimer/training_dataset/human_validation_subset.jsonl"
+  ],
+  "artifacts_that_are_not_answer_targets": {
+    "evidence_quality_annotations": {
+      "path": "experiments/results/rag2_vs_scaf_alzheimer/evidence_quality/annotation_sheet_v2.jsonl",
+      "rows": 120,
+      "suitable_as_answer_gold": false,
+      "what_it_is": "human 0/1/2 judgements of whether a PASSAGE is useful for a question",
+      "why_not_an_answer_target": "it grades retrieved evidence, not generated answers. An answer can be wrong from useful passages and right from thin ones."
+    },
+    "filter_training_weak_labels": {
+      "label_field": "assigned_label",
+      "labels": {
+        "[HELPFUL]": 40,
+        "[NOT_HELPFUL]": 80
+      },
+      "path": "experiments/results/rag2_vs_scaf_alzheimer/training_dataset/human_validation_subset.jsonl",
+      "rows": 120,
+      "suitable_as_answer_gold": false,
+      "what_it_is": "rule-derived [HELPFUL]/[NOT_HELPFUL] training data for the RAG2 filter",
+      "why_not_an_answer_target": "training data, not evaluation data, and about passages rather than answers. Using it to evaluate would be testing on train."
+    },
+    "machine_scores": {
+      "path": "experiments/results/rag2_vs_scaf_alzheimer/comparison_scientific/per_question.jsonl",
+      "suitable_as_answer_gold": false,
+      "what_it_is": "each system's own SCAF/RAG2 score for each passage",
+      "why_not_an_answer_target": "circular: grading a system's output with that system's own score measures self-consistency, not quality."
+    }
+  },
+  "decision": {
+    "has_answer_evaluation_code": true,
+    "has_answer_quality_target": false,
+    "matched_k_selection_executable": true,
+    "reason": "The machinery exists but the target does not. Answer-evaluation code is present and tested, the generator is pinned, the 30 questions and the frozen candidate set are fixed, and each arm's top-k can be selected from the saved scores without rerunning retrieval. The single missing component is something to grade an answer against: there is no gold answer, no reference answer and no expert answer label anywhere in the repository.",
+    "verdict": "PARTIALLY READY"
+  },
+  "evaluation_code": {
+    "capabilities": {
+      "filter_metrics": {
+        "functions": [
+          "filter_metrics"
+        ],
+        "requires": "gold HELPFUL/NOT_HELPFUL labels",
+        "usable_on_alzheimer_set": false,
+        "why": "measures the filter, not the answer; and the repository's HELPFUL labels are rule-derived training data"
+      },
+      "multiple_choice_accuracy": {
+        "functions": [
+          "extract_choice",
+          "is_correct",
+          "accuracy",
+          "accuracy_by"
+        ],
+        "requires": "a gold option letter and an options mapping per question",
+        "usable_on_alzheimer_set": false,
+        "why": "the Alzheimer questions are open-ended and carry neither options nor a gold letter"
+      },
+      "open_ended_similarity": {
+        "functions": [
+          "rouge_l",
+          "bertscore",
+          "open_ended_metrics"
+        ],
+        "requires": "a written reference answer per question",
+        "usable_on_alzheimer_set": false,
+        "why": "no reference answer exists for any of the 30 questions"
+      }
+    },
+    "citation_correctness": {
+      "exists": false
+    },
+    "exists": true,
+    "factuality_or_claim_level": {
+      "exists": false
+    },
+    "functions": [
+      "extract_choice",
+      "is_correct",
+      "accuracy",
+      "accuracy_by",
+      "evidence_report",
+      "filter_metrics",
+      "_lcs_length",
+      "rouge_l",
+      "bertscore",
+      "open_ended_metrics"
+    ],
+    "path": "architecture/rag2/rag2/evaluation.py",
+    "wired_into_the_scaf_comparison": false
+  },
+  "generated_answers": {
+    "arms": {
+      "rag2": {
+        "abstentions": 0,
+        "answer_chars": {
+          "max": 2594,
+          "median": 1329,
+          "min": 471
+        },
+        "answers_expected": 30,
+        "answers_present": 30,
+        "generation_errors": 0,
+        "mean_admitted_passages": 0.133,
+        "mean_context_chars": 39.1
+      },
+      "scaf": {
+        "abstentions": 0,
+        "answer_chars": {
+          "max": 2548,
+          "median": 1387,
+          "min": 466
+        },
+        "answers_expected": 30,
+        "answers_present": 30,
+        "generation_errors": 0,
+        "mean_admitted_passages": 19.167,
+        "mean_context_chars": 26904.6
+      }
+    },
+    "context_ratio_scaf_over_rag2": 688.1,
+    "path": "/home/user/thesis_research/experiments/results/rag2_vs_scaf_alzheimer/comparison_scientific/per_question.jsonl",
+    "questions": 30
+  },
+  "generator": {
+    "answers_with_reference": {
+      "rag2": 0,
+      "scaf": 0
+    },
+    "backend": "openai",
+    "greedy": true,
+    "identical_across_arms": true,
+    "manifest_note": "no gold answers in this question set; only counts are reported. Metrics are absent, not zero.",
+    "max_new_tokens": 512,
+    "model": "thesis-llama3-8b-q4",
+    "prompt_fingerprint": "fc6db2781ddc",
+    "prompt_version": "rag2-original-v1"
+  },
+  "inspected_utc": "2026-09-10T18:33:40Z",
+  "matched_k_feasibility": {
+    "arm_questions_total": 60,
+    "arm_questions_with_at_least_k_candidates": 60,
+    "blocked_on": [
+      "answer_quality_target"
+    ],
+    "components": {
+      "answer_quality_target": false,
+      "generation_must_be_rerun": true,
+      "same_30_questions": true,
+      "same_frozen_candidate_set": true,
+      "same_generator_configuration_recorded": true,
+      "top_k_selection_from_frozen_scores": true
+    },
+    "k": 5,
+    "note": "choosing each arm's top-k needs no retrieval, no reranking and no index -- the frozen decisions already carry every score. Generation would have to be rerun because the k=5 contexts differ from the ones the completed run used. That is cheap. What is missing is not compute: it is something to grade the answers against.",
+    "questions": 30,
+    "selection_executable_now": true
+  },
+  "question_set": {
+    "answer_target_fields": [],
+    "exists": true,
+    "fields": {
+      "note": 30,
+      "qid": 30,
+      "question": 30,
+      "set": 30,
+      "time_sensitive": 30
+    },
+    "has_gold_answers": false,
+    "notes": [
+      "DEVELOPMENT ONLY. No gold answer: this set compares admission behaviour, not accuracy."
+    ],
+    "path": "/home/user/thesis_research/data/datasets/thesis_questions/dev_questions.jsonl",
+    "per_question_holdings": {
+      "answer_quality_labels": 0,
+      "expert_labels": 0,
+      "gold_answer": 0,
+      "question_text": 30,
+      "reference_answer": 0
+    },
+    "questions": 30,
+    "set_identifiers": [
+      "alzheimer-dev-v1"
+    ]
+  }
+}

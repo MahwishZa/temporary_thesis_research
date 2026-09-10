@@ -59,6 +59,13 @@ SUITES: dict[str, tuple[Path, list[str]]] = {
         ROOT,
         [sys.executable, "-m", "pytest", "experiments/analysis/tests"],
     ),
+    # The Filter Recency-Bias Probe. The filter is injected, so the estimator,
+    # the permutation control and the provenance firewall are all testable here
+    # with no model, no GPU and no dataset.
+    "recency": (
+        ROOT,
+        [sys.executable, "-m", "pytest", "experiments/recency_bias/tests"],
+    ),
 }
 
 
