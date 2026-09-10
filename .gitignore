@@ -50,6 +50,15 @@ indexes/production/
 indexes/development/
 experiments/runs/candidates/
 
+# The evidence-quality de-blinding key. This file holds the SCAF and RAG2 scores
+# for exactly the passages a human is judging, and committing it would put them
+# one `git show` away from the annotator. Ignored wherever it appears, not just
+# at its usual path, because a copy made for convenience de-blinds just as well.
+# experiments/scripts/annotate.py additionally refuses to open any file whose
+# name contains "key", so the interface cannot display these values either.
+annotation_key.jsonl
+**/annotation_key.jsonl
+
 # Pytest cache
 .pytest_cache/
 
