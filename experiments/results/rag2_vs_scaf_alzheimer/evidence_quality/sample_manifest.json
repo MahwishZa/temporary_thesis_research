@@ -1,0 +1,33 @@
+{
+  "cell_counts": {
+    "scaf_high|rag2_high": 13,
+    "scaf_high|rag2_low": 13,
+    "scaf_high|rag2_medium": 13,
+    "scaf_low|rag2_high": 16,
+    "scaf_low|rag2_low": 13,
+    "scaf_low|rag2_medium": 13,
+    "scaf_medium|rag2_high": 14,
+    "scaf_medium|rag2_low": 13,
+    "scaf_medium|rag2_medium": 12
+  },
+  "created_utc": "2026-09-10T06:28:15Z",
+  "forced_rag2_admitted": 4,
+  "frozen_set_digest": "316260f04c1720fbc20c1b584ea9f0a093dedbae9fd46476d8a7f45380e86aad",
+  "population": 600,
+  "rag2_tertile_edges": [
+    0.292668,
+    0.344102
+  ],
+  "requested_size": 120,
+  "retrieval_is_medcpt": true,
+  "rule": "all RAG2 admissions, then round-robin over 9 SCAF x RAG2 tertile cells; bins from tertiles of all 600 decisions, fixed before annotation",
+  "sampled": 120,
+  "scaf_tertile_edges": [
+    0.58149,
+    0.685577
+  ],
+  "schema_version": "evidence-quality-v1",
+  "seed": 42,
+  "source_frozen": "C:\\Users\\mahwi\\Documents\\MS SE\\4th semester\\thesis_research\\experiments\\runs\\frozen_candidates.jsonl",
+  "source_per_question": "C:\\Users\\mahwi\\Documents\\MS SE\\4th semester\\thesis_research\\experiments\\results\\rag2_vs_scaf_alzheimer\\comparison_scientific\\per_question.jsonl"
+}

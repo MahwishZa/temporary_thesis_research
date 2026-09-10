@@ -1,0 +1,210 @@
+{
+  "provenance": {
+    "created_utc": "2026-09-10T08:04:44Z",
+    "frozen_set_digest": null,
+    "key": "C:\\Users\\mahwi\\Documents\\MS SE\\4th semester\\thesis_research\\experiments\\results\\rag2_vs_scaf_alzheimer\\evidence_quality\\annotation_key.jsonl",
+    "retrieval_is_medcpt": null,
+    "schema_version": "evidence-quality-v1",
+    "sheet": "C:\\Users\\mahwi\\Documents\\MS SE\\4th semester\\thesis_research\\experiments\\results\\rag2_vs_scaf_alzheimer\\evidence_quality\\annotation_sheet.jsonl",
+    "source_frozen": null,
+    "source_per_question": "C:\\Users\\mahwi\\Documents\\MS SE\\4th semester\\thesis_research\\experiments\\results\\rag2_vs_scaf_alzheimer\\comparison_scientific\\per_question.jsonl"
+  },
+  "result": {
+    "by_admission": {
+      "rag2": {
+        "admitted": {
+          "max": 2,
+          "mean": 1.0,
+          "median": 1.0,
+          "min": 0,
+          "n": 4
+        },
+        "rejected": {
+          "max": 2,
+          "mean": 1.6121,
+          "median": 2.0,
+          "min": 0,
+          "n": 116
+        }
+      },
+      "scaf": {
+        "admitted": {
+          "max": 2,
+          "mean": 1.6017,
+          "median": 2.0,
+          "min": 0,
+          "n": 118
+        },
+        "rejected": {
+          "max": 1,
+          "mean": 1.0,
+          "median": 1.0,
+          "min": 1,
+          "n": 2
+        }
+      }
+    },
+    "by_score_bin": {
+      "rag2": {
+        "high": {
+          "max": 2,
+          "mean": 1.5349,
+          "median": 2.0,
+          "min": 0,
+          "n": 43
+        },
+        "low": {
+          "max": 2,
+          "mean": 1.641,
+          "median": 2.0,
+          "min": 0,
+          "n": 39
+        },
+        "medium": {
+          "max": 2,
+          "mean": 1.6053,
+          "median": 2.0,
+          "min": 0,
+          "n": 38
+        }
+      },
+      "scaf": {
+        "high": {
+          "max": 2,
+          "mean": 2.0,
+          "median": 2.0,
+          "min": 2,
+          "n": 39
+        },
+        "low": {
+          "max": 2,
+          "mean": 1.2381,
+          "median": 1.0,
+          "min": 0,
+          "n": 42
+        },
+        "medium": {
+          "max": 2,
+          "mean": 1.5641,
+          "median": 2.0,
+          "min": 1,
+          "n": 39
+        }
+      }
+    },
+    "completeness": {
+      "completed": 120,
+      "duplicate_annotation_ids": [],
+      "invalid": 0,
+      "invalid_entries": [],
+      "label_distribution": {
+        "0": 4,
+        "1": 41,
+        "2": 75
+      },
+      "missing": 0,
+      "missing_ids": [],
+      "ready_for_analysis": true,
+      "schema_version": "evidence-quality-v1",
+      "total_rows": 120
+    },
+    "disagreement_cases": {
+      "both_admit": {
+        "max": 2,
+        "mean": 1.0,
+        "median": 1.0,
+        "min": 0,
+        "n": 4
+      },
+      "neither_admits": {
+        "max": 1,
+        "mean": 1.0,
+        "median": 1.0,
+        "min": 1,
+        "n": 2
+      },
+      "rag2_admits_scaf_rejects": {
+        "n": 0
+      },
+      "scaf_admits_rag2_rejects": {
+        "max": 2,
+        "mean": 1.6228,
+        "median": 2.0,
+        "min": 0,
+        "n": 114
+      }
+    },
+    "human_label_distribution": {
+      "0": 4,
+      "1": 41,
+      "2": 75
+    },
+    "interpretation_guard": "Rank association is the primary result: it asks whether the continuous score orders evidence as a human does, independently of any threshold. The admission rows are threshold-dependent and change if the threshold moves. Neither establishes answer quality, temporal bias or clinical appropriateness, none of which is measured here.",
+    "labelled_rows": 120,
+    "partial": false,
+    "question_clustering": {
+      "guard": "rows within a question are not independent; the reported n is a count of passages, not of independent observations, and no clustering correction is applied",
+      "questions_represented": 29,
+      "rows": 120,
+      "rows_per_question": {
+        "max": 8,
+        "mean": 4.1379,
+        "min": 2
+      }
+    },
+    "rank_association_with_human_label": {
+      "rag2_score": {
+        "n": 120,
+        "spearman": -0.0753
+      },
+      "scaf_gamma_currency": {
+        "n": 120,
+        "spearman": -0.1239
+      },
+      "scaf_score": {
+        "n": 120,
+        "spearman": 0.6284
+      },
+      "scaf_sigma_support": {
+        "n": 120,
+        "spearman": 0.7292
+      },
+      "scaf_tau_authority": {
+        "n": 120,
+        "spearman": -0.095
+      }
+    },
+    "schema_version": "evidence-quality-v1",
+    "suggestion_anchoring": {
+      "all": {
+        "agreement_rate": 1.0,
+        "human_above_suggestion": 0,
+        "human_below_suggestion": 0,
+        "mean_signed_difference": 0.0,
+        "n": 120,
+        "spearman_suggestion_vs_human": 1.0,
+        "suggestion_distribution": {
+          "0": 4,
+          "1": 41,
+          "2": 75
+        }
+      },
+      "guard": "A high agreement rate does NOT validate the suggestion rule. It means the labels are not independent of it, which inflates any association between the human label and SCAF's lexical support term. Rows annotated with the suggestion hidden are the only ones free of this effect; if there are none, the whole sample carries it.",
+      "rows_with_a_recorded_suggestion": 120,
+      "rows_without_a_recorded_suggestion": 0,
+      "shown": {
+        "agreement_rate": 1.0,
+        "human_above_suggestion": 0,
+        "human_below_suggestion": 0,
+        "mean_signed_difference": 0.0,
+        "n": 120,
+        "spearman_suggestion_vs_human": 1.0,
+        "suggestion_distribution": {
+          "0": 4,
+          "1": 41,
+          "2": 75
+        }
+      }
+    }
+  }
+}

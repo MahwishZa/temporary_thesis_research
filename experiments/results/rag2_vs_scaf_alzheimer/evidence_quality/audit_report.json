@@ -1,0 +1,212 @@
+{
+  "counts": {
+    "FAIL": 1,
+    "PASS": 29,
+    "WARN": 2
+  },
+  "findings": [
+    {
+      "check": "row count is 120",
+      "detail": "120 rows",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "no missing labels",
+      "detail": "0 missing",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "no invalid labels",
+      "detail": "0 invalid: []",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "label distribution matches the reported 75/41/4",
+      "detail": "found {0: 14, 1: 46, 2: 60}, expected {0: 4, 1: 41, 2: 75}",
+      "section": "annotations",
+      "status": "FAIL"
+    },
+    {
+      "check": "annotation ids are unique",
+      "detail": "duplicates: []",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "every row is a real evaluation decision",
+      "detail": "0 row(s) match no decision: []",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "question text is unchanged from the comparison",
+      "detail": "0 row(s) differ: []",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "every row carries passage text",
+      "detail": "0 row(s) have no candidate_text",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "no filter-training examples in the sample",
+      "detail": "0 training row(s): []",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "human_label is not a copy of ai_suggested_label",
+      "detail": "no row carries a machine suggestion at all, so no label can be a copy of one",
+      "section": "annotations",
+      "status": "PASS"
+    },
+    {
+      "check": "sample was built from the scientific run's frozen set",
+      "detail": "sample=316260f04c1720fbc20c1b584ea9f0a093dedbae9fd46476d8a7f45380e86aad  scientific_run=316260f04c1720fbc20c1b584ea9f0a093dedbae9fd46476d8a7f45380e86aad",
+      "section": "provenance",
+      "status": "PASS"
+    },
+    {
+      "check": "retrieval is production MedCPT",
+      "detail": "retrieval_is_medcpt=True",
+      "section": "provenance",
+      "status": "PASS"
+    },
+    {
+      "check": "sample was built from comparison_scientific/",
+      "detail": "source_per_question is under 'comparison_scientific'",
+      "section": "provenance",
+      "status": "PASS"
+    },
+    {
+      "check": "local frozen file matches the scientific run",
+      "detail": "local=316260f04c1720fbc20c1b584ea9f0a093dedbae9fd46476d8a7f45380e86aad (rag2 candidate cache); scientific_run=316260f04c1720fbc20c1b584ea9f0a093dedbae9fd46476d8a7f45380e86aad",
+      "section": "provenance",
+      "status": "PASS"
+    },
+    {
+      "check": "population is the 600 evaluation decisions",
+      "detail": "manifest=600  decisions on disk=600",
+      "section": "sampling",
+      "status": "PASS"
+    },
+    {
+      "check": "sample size is 120",
+      "detail": "manifest=120",
+      "section": "sampling",
+      "status": "PASS"
+    },
+    {
+      "check": "every RAG2 admission was forced into the sample",
+      "detail": "manifest=4  admissions in population=4",
+      "section": "sampling",
+      "status": "PASS"
+    },
+    {
+      "check": "scaf tertile edges recompute from all 600 decisions",
+      "detail": "recomputed=[0.58149, 0.685577]  recorded=[0.58149, 0.685577]",
+      "section": "sampling",
+      "status": "PASS"
+    },
+    {
+      "check": "rag2 tertile edges recompute from all 600 decisions",
+      "detail": "recomputed=[0.292668, 0.344102]  recorded=[0.292668, 0.344102]",
+      "section": "sampling",
+      "status": "PASS"
+    },
+    {
+      "check": "the sample reproduces exactly from the predeclared rule and seed",
+      "detail": "0 row(s) of 120 differ from a re-run with seed 42",
+      "section": "sampling",
+      "status": "PASS"
+    },
+    {
+      "check": "sample spans the question set",
+      "detail": "29 of 30 questions represented; up to 8 passages come from a single question, so rows are not independent observations",
+      "section": "sampling",
+      "status": "WARN"
+    },
+    {
+      "check": "forcing all RAG2 admissions makes the sample non-self-weighting",
+      "detail": "4 of 120 rows were included by rule rather than by chance. Those 4 are a complete census of RAG2's admissions, not a sample of them, so the RAG2 admitted/rejected contrast is descriptive of exactly those 4 passages, and the sample is not a simple random sample of the 600",
+      "section": "sampling",
+      "status": "WARN"
+    },
+    {
+      "check": "free of suggestion anchoring",
+      "detail": "no suggestion was generated for any row: this is a human-only pass, so there is no anchoring to measure and none to correct for.",
+      "section": "anchoring",
+      "status": "PASS"
+    },
+    {
+      "check": "same annotation ids as the pilot sample",
+      "detail": "0 missing, 0 added",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "same row order as the pilot sample",
+      "detail": "ids match position for position",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "question text unchanged from the pilot sheet",
+      "detail": "0 row(s) differ: []",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "passage text unchanged from the pilot sheet",
+      "detail": "0 row(s) differ: []",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "no suggestion was displayed during the corrected pass",
+      "detail": "0 of 120 labelled row(s) recorded ai_suggestion_shown=true",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "no suggestion was generated for the corrected pass",
+      "detail": "0 of 120 labelled row(s) carry an ai_suggested_label",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "labels were entered through the interface",
+      "detail": "120 of 120 labelled row(s) carry an annotated_utc timestamp, which only a button press writes",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "rows are marked as the corrected pass",
+      "detail": "120 of 120 row(s) carry annotation_pass",
+      "section": "corrected",
+      "status": "PASS"
+    },
+    {
+      "check": "every label joins back to a machine score",
+      "detail": "0 sheet id(s) absent from the key",
+      "section": "annotations",
+      "status": "PASS"
+    }
+  ],
+  "integrity": {
+    "annotation_sheet_sha256": "19d427cd6a0909056e3e24a1a2aa9a8976f82426cc669eb815b101f474e14ed1",
+    "label_distribution": {
+      "0": 14,
+      "1": 46,
+      "2": 60
+    },
+    "label_fingerprint": "49e2b927212e4a4c39c5756f8a46f4c56b6b3d45a64586ed4b803b32a9688354",
+    "rows": 120
+  },
+  "verdict": "FAIL"
+}
