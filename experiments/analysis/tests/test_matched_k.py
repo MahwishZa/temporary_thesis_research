@@ -4,8 +4,16 @@ The failure this file exists to prevent is a matched-k run built on the
 lexical-development candidate set. It would produce 60 plausible answers, a
 clean-looking manifest, and an entirely different experiment from the one the
 thesis claims. So the provenance refusal is tested before anything else.
+
+The second failure it exists to prevent is a run that sends thesis questions to
+a commercial API. ``backend: openai`` reached the thesis generator through a
+LOCAL OpenAI-compatible server; with ``OPENAI_BASE_URL`` unset the same flag
+silently reaches api.openai.com instead, and the manifest looks identical. The
+endpoint tests cover that guard.
 """
 
+import ast
+import importlib.util
 import json
 import os
 import sys
@@ -29,6 +37,25 @@ from experiments.analysis.matched_k import (  # noqa: E402
 )
 
 STALE = "151b7d5432b124bafb66e057e8b99c1d06c84954d5650951da3fc8c8aa8ccf3d"
+
+RUNNER_PATH = os.path.join(_ROOT, "experiments", "scripts", "run_matched_k.py")
+
+
+def _load_runner():
+    """Import the runner script as a module.
+
+    ``experiments/scripts`` is not a package, and the script's scaf/rag2
+    imports are deliberately inside ``main()``, so importing the file directly
+    costs nothing and reaches no model.
+    """
+    spec = importlib.util.spec_from_file_location("_run_matched_k_ut", RUNNER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+runner = _load_runner()
+check_generation_endpoint = runner.check_generation_endpoint
 
 
 def _decisions(n=20, base=0.5):
@@ -242,6 +269,192 @@ def test_statistics_detect_identical_evidence_sets(tmp_path):
     stats = selection_statistics(build_selection(s["per_question"]))
     assert stats["questions_with_identical_sets"] == 30
     assert stats["mean_jaccard"] == 1.0
+
+
+# --------------------------------------------------------------------------
+# Generation endpoint: which server actually answers `backend: openai`
+# --------------------------------------------------------------------------
+def _failed(report):
+    return [c["check"] for c in report["checks"] if not c["pass"]]
+
+
+def test_missing_base_url_fails_safely():
+    """The dangerous default. Unset means the SDK reaches api.openai.com."""
+    report = check_generation_endpoint("openai", "", "ollama")
+    assert report["all_passed"] is False
+    assert report["applicable"] is True
+    assert report["base_url"] is None
+    assert "OPENAI_BASE_URL is set" in _failed(report)
+
+
+def test_the_commercial_openai_endpoint_fails_safely():
+    report = check_generation_endpoint("openai", "https://api.openai.com/v1", "sk-x")
+    assert report["all_passed"] is False
+    assert report["is_commercial_openai"] is True
+    assert "endpoint is NOT the commercial OpenAI service" in _failed(report)
+
+
+@pytest.mark.parametrize("url", [
+    "https://api.openai.com/v1",
+    "https://API.OpenAI.com/v1",
+    "https://openai.com/v1",
+    "https://thesis.openai.azure.com/v1",
+])
+def test_every_commercial_spelling_is_refused(url):
+    assert check_generation_endpoint("openai", url, "sk-x")["is_commercial_openai"]
+
+
+@pytest.mark.parametrize("url", [
+    "http://localhost:11434/v1",
+    "http://127.0.0.1:11434/v1",
+    "http://0.0.0.0:8000/v1",
+    "http://my-openai.com:11434/v1",   # not a subdomain of openai.com
+])
+def test_a_local_endpoint_is_accepted(url):
+    report = check_generation_endpoint("openai", url, "ollama")
+    assert report["all_passed"] is True, _failed(report)
+    assert report["is_commercial_openai"] is False
+
+
+def test_the_ollama_placeholder_key_is_enough():
+    """The local server ignores the value; only the SDK needs one to exist."""
+    assert check_generation_endpoint(
+        "openai", "http://localhost:11434/v1", "ollama")["all_passed"] is True
+
+
+def test_an_absent_api_key_fails_rather_than_crashing_later():
+    report = check_generation_endpoint("openai", "http://localhost:11434/v1", "")
+    assert report["all_passed"] is False
+    assert report["api_key_present"] is False
+    assert any("API key" in c for c in _failed(report))
+
+
+def test_a_backend_that_is_not_an_http_api_has_no_endpoint_to_check():
+    """A local transformers backend loads weights; there is no server to name."""
+    report = check_generation_endpoint("hf", "", "")
+    assert report["all_passed"] is True
+    assert report["applicable"] is False
+
+
+def test_the_api_key_value_is_never_recorded():
+    secret = "sk-proj-DO-NOT-RECORD-THIS-VALUE"
+    report = check_generation_endpoint("openai", "http://localhost:11434/v1", secret)
+    assert secret not in json.dumps(report)
+    assert report["api_key_present"] is True
+
+
+def test_the_report_names_the_endpoint_a_reader_would_need():
+    report = check_generation_endpoint("openai", "http://localhost:11434/v1", "ollama")
+    for field in ("base_url", "endpoint_host", "is_commercial_openai",
+                  "api_key_present", "backend", "applicable"):
+        assert field in report, field
+    assert report["base_url"] == "http://localhost:11434/v1"
+    assert report["endpoint_host"] == "localhost"
+
+
+# --------------------------------------------------------------------------
+# The guard where it matters: the runner's modes
+# --------------------------------------------------------------------------
+def _runner_args(tmp_path, study, out, *extra):
+    return [
+        "--per-question", study["per_question"],
+        "--run-manifest", study["manifest"],
+        "--frozen", str(tmp_path / "frozen_candidates.jsonl"),
+        "--questions", study["questions"],
+        "--k", "5",
+        "--analysis-out", str(out),
+        "--out", str(out / "matched_k5"),
+        *extra,
+    ]
+
+
+def test_generation_refuses_when_the_endpoint_is_missing(tmp_path, monkeypatch, capsys):
+    """No --dry-run, no --document: this is the path that would send prompts.
+
+    The frozen candidate file does not exist in tmp_path, so reaching the
+    generation block would raise rather than return -- a clean exit code 2 is
+    proof the refusal came first.
+    """
+    study = _write_study(tmp_path)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "ollama")
+    code = runner.main(_runner_args(tmp_path, study, tmp_path / "analysis"))
+    out = capsys.readouterr().out
+    assert code == 2
+    assert "REFUSING TO GENERATE" in out
+    assert "OPENAI_BASE_URL" in out
+
+
+def test_generation_refuses_a_commercial_endpoint(tmp_path, monkeypatch, capsys):
+    study = _write_study(tmp_path)
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-proj-NOT-THE-THESIS-GENERATOR")
+    code = runner.main(_runner_args(tmp_path, study, tmp_path / "analysis"))
+    out = capsys.readouterr().out
+    assert code == 2
+    assert "REFUSING TO GENERATE" in out
+    assert "commercial" in out
+    assert "sk-proj-NOT-THE-THESIS-GENERATOR" not in out
+
+
+def test_a_bad_endpoint_does_not_block_the_read_only_modes(tmp_path, monkeypatch,
+                                                           capsys):
+    """--dry-run generates nothing, so it must still work off the thesis machine."""
+    study = _write_study(tmp_path)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    code = runner.main(_runner_args(tmp_path, study, tmp_path / "analysis",
+                                    "--dry-run"))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "REFUSING TO GENERATE" not in out
+    assert "FAIL  OPENAI_BASE_URL is set" in out   # reported, not enforced
+
+
+def test_document_mode_records_the_endpoint_as_provenance(tmp_path, monkeypatch):
+    study = _write_study(tmp_path)
+    out = tmp_path / "analysis"
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-proj-DO-NOT-RECORD-THIS-VALUE")
+    assert runner.main(_runner_args(tmp_path, study, out, "--document")) == 0
+    text = (out / "matched_k5_readiness.json").read_text(encoding="utf-8")
+    payload = json.loads(text)
+    endpoint = payload["generation_endpoint"]
+    assert endpoint["base_url"] == "http://localhost:11434/v1"
+    assert endpoint["all_passed"] is True
+    assert endpoint["is_commercial_openai"] is False
+    assert "sk-proj-DO-NOT-RECORD-THIS-VALUE" not in text
+
+
+def test_document_mode_records_a_failing_endpoint_rather_than_hiding_it(
+        tmp_path, monkeypatch):
+    study = _write_study(tmp_path)
+    out = tmp_path / "analysis"
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "ollama")
+    runner.main(_runner_args(tmp_path, study, out, "--document"))
+    endpoint = json.loads((out / "matched_k5_readiness.json").read_text(
+        encoding="utf-8"))["generation_endpoint"]
+    assert endpoint["all_passed"] is False
+    assert endpoint["base_url"] is None
+
+
+def test_the_run_manifest_carries_the_endpoint():
+    """Structural: generation cannot be executed in a test, so read the source.
+
+    Without this key the written manifest would again say only "openai", and a
+    reader could not tell a local run from a cloud one.
+    """
+    tree = ast.parse(open(RUNNER_PATH, encoding="utf-8").read())
+    manifests = [node.value for node in ast.walk(tree)
+                 if isinstance(node, ast.Assign)
+                 and isinstance(node.value, ast.Dict)
+                 and any(isinstance(t, ast.Name) and t.id == "manifest"
+                         for t in node.targets)]
+    assert manifests, "no manifest dict literal found in the runner"
+    keys = {k.value for m in manifests for k in m.keys
+            if isinstance(k, ast.Constant)}
+    assert "generation_endpoint" in keys
 
 
 # --------------------------------------------------------------------------

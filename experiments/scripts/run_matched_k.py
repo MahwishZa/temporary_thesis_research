@@ -34,6 +34,7 @@ import json
 import os
 import sys
 import time
+import urllib.parse
 from typing import Any, Dict, List
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -51,6 +52,17 @@ from experiments.analysis.matched_k import (  # noqa: E402
     sha256,
     verify_inputs,
 )
+
+#: Backends that reach a model over an OpenAI-compatible HTTP API. For these the
+#: backend name alone does not say WHICH server answered, so the endpoint has to
+#: be checked and recorded.
+HTTP_OPENAI_BACKENDS = ("openai",)
+
+#: Hosts that are the commercial OpenAI service (or Azure's hosted OpenAI).
+#: Reaching one of these would mean a cloud model wrote thesis answers, which is
+#: not the thesis generation setup.
+COMMERCIAL_OPENAI_SUFFIXES = (".openai.com", ".openai.azure.com")
+COMMERCIAL_OPENAI_HOSTS = ("openai.com",)
 
 RESULTS = os.path.join(_ROOT, "experiments", "results", "rag2_vs_scaf_alzheimer")
 DEFAULT_PER_QUESTION = os.path.join(RESULTS, "comparison_scientific", "per_question.jsonl")
@@ -100,6 +112,71 @@ def _read_jsonl(path: str) -> List[Dict[str, Any]]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def check_generation_endpoint(backend: str, base_url: str,
+                              api_key: str) -> Dict[str, Any]:
+    """Where will `backend: openai` actually send the prompts?
+
+    The scientific run recorded ``backend: openai`` and model
+    ``thesis-llama3-8b-q4``. OpenAI serves no such model: the backend was
+    pointed at a local OpenAI-compatible server (Ollama) through
+    ``OPENAI_BASE_URL``, and the OpenAI SDK honours that variable without any
+    code change. Nothing in the repository recorded it, so the manifest said
+    "openai" and a reader could not tell a local run from a cloud one.
+
+    Worse, the SDK's default when ``OPENAI_BASE_URL`` is unset is
+    ``https://api.openai.com/v1`` -- so a run with the variable missing would
+    quietly send thesis questions to a commercial API and produce a manifest
+    indistinguishable from the local one. This makes that impossible: the
+    endpoint must be present, must not be commercial, and is recorded.
+
+    The API key only has to be non-empty. The local server ignores its value
+    (``ollama`` is the conventional placeholder); the SDK merely refuses to
+    construct a client without one.
+    """
+    checks: List[Dict[str, Any]] = []
+
+    def check(name: str, ok: bool, detail: str = "") -> None:
+        checks.append({"check": name, "pass": bool(ok), "detail": detail})
+
+    if backend not in HTTP_OPENAI_BACKENDS:
+        check(f"endpoint check applies to backend {backend!r}", True,
+              "not an OpenAI-compatible HTTP backend; no endpoint to verify")
+        return {"all_passed": True, "applicable": False, "backend": backend,
+                "base_url": None, "checks": checks}
+
+    check("OPENAI_BASE_URL is set", bool(base_url),
+          base_url or "unset -- the SDK would default to https://api.openai.com/v1 "
+                      "and send thesis questions to a commercial API")
+
+    host = ""
+    if base_url:
+        host = (urllib.parse.urlparse(base_url).hostname or "").lower()
+    commercial = bool(host) and (
+        host in COMMERCIAL_OPENAI_HOSTS
+        or any(host.endswith(suffix) for suffix in COMMERCIAL_OPENAI_SUFFIXES))
+    check("endpoint is NOT the commercial OpenAI service", not commercial,
+          f"host {host!r}" + (" -- this is a commercial API, not the thesis "
+                              "generation setup" if commercial else ""))
+
+    check("an API key value is present (any placeholder will do)", bool(api_key),
+          "set" if api_key else "unset -- the local server ignores the value, but "
+                                "the OpenAI SDK will not build a client without "
+                                "one. Use a placeholder such as 'ollama'.")
+
+    return {
+        "all_passed": all(c["pass"] for c in checks),
+        "applicable": True,
+        "backend": backend,
+        "base_url": base_url or None,
+        "endpoint_host": host or None,
+        "is_commercial_openai": commercial,
+        "api_key_present": bool(api_key),
+        "checks": checks,
+        "note": ("the API key value is never recorded; only whether one was "
+                 "present. The local server ignores it."),
+    }
+
+
 def _preflight(args) -> Dict[str, Any]:
     report = verify_inputs(args.per_question, args.run_manifest,
                            f"{os.path.splitext(args.frozen)[0]}.meta.json",
@@ -137,6 +214,17 @@ def main(argv=None) -> int:
 
     report = _preflight(args)
 
+    endpoint = check_generation_endpoint(
+        args.generator,
+        os.environ.get("OPENAI_BASE_URL", ""),
+        os.environ.get("OPENAI_API_KEY", ""))
+    if endpoint["applicable"]:
+        print("\n-- generation endpoint " + "-" * 48)
+        for check in endpoint["checks"]:
+            print(f"  {'PASS' if check['pass'] else 'FAIL'}  {check['check']}")
+            if check["detail"]:
+                print(f"        {check['detail']}")
+
     if args.document:
         selection = build_selection(args.per_question, k=args.k)
         payload = {
@@ -148,6 +236,7 @@ def main(argv=None) -> int:
             "selection_statistics": selection_statistics(selection),
             "generator_requested": {"backend": args.generator,
                                     "model": args.generator_model},
+            "generation_endpoint": endpoint,
             "source_run_generation": (
                 (json.load(open(args.run_manifest, encoding="utf-8")).get("config")
                  or {}).get("arm_a_generation") or {}),
@@ -198,6 +287,22 @@ def main(argv=None) -> int:
     if args.dry_run:
         print("\n--dry-run: checks and selection only. Nothing generated, nothing written.")
         return 0
+
+    # Generation is the only mode that actually sends a prompt anywhere, so the
+    # endpoint is enforced here rather than in the read-only modes above.
+    if not endpoint["all_passed"]:
+        print("\nREFUSING TO GENERATE. The endpoint is not the thesis generation "
+              "setup.")
+        for check in endpoint["checks"]:
+            if not check["pass"]:
+                print(f"  - {check['check']}: {check['detail']}")
+        print("\n  The scientific run served thesis-llama3-8b-q4 from a LOCAL\n"
+              "  OpenAI-compatible server. Restore that environment:\n\n"
+              "    $env:OPENAI_BASE_URL = \"http://localhost:11434/v1\"\n"
+              "    $env:OPENAI_API_KEY  = \"ollama\"   # any non-empty placeholder\n\n"
+              "  Do NOT supply a commercial OpenAI key: a cloud model is not the\n"
+              "  thesis generator, and the arms must share the frozen one.")
+        return 2
 
     # -- generation ------------------------------------------------------
     from scaf.frozen import load as load_frozen  # noqa: E402
@@ -298,6 +403,7 @@ def main(argv=None) -> int:
             for p in (args.per_question, args.run_manifest, args.questions)
             if os.path.isfile(p)},
         "generator": generator.describe(),
+        "generation_endpoint": endpoint,
         "generation_config": spec.to_dict(),
         "source_run_generation": source_generation,
         "pre_generation_checks": report,
